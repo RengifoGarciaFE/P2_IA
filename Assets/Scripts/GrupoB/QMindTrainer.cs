@@ -5,7 +5,9 @@ using QMind.Interfaces;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Random = UnityEngine.Random;
 
 namespace GrupoB
@@ -25,6 +27,11 @@ namespace GrupoB
         private WorldInfo _worldInfo;
         private INavigationAlgorithm _navigationAlgorithm;
 
+        public float epsilon;
+        public float alpha;
+        public float gamma;
+
+
         public void Initialize(QMindTrainerParams qMindTrainerParams, WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
         {
             //inicializamos atributos de la clase para poder acceder a ellos
@@ -38,20 +45,39 @@ namespace GrupoB
             AgentPosition = worldInfo.RandomCell();
             OtherPosition = worldInfo.RandomCell();
             OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
+            epsilon = _qMindTrainerParams.epsilon;
+            alpha = _qMindTrainerParams.alpha;
+            gamma = _qMindTrainerParams.gamma;
         }
+        
+
 
         public void DoStep(bool train)
         {
-            //movimiento personajes
+            //movimiento enemigo
             int action = Random.Range(0, 4);
             CellInfo newAgentPos = _worldInfo.NextCell(AgentPosition, _worldInfo.AllowedMovements.FromIntValue(action));
             AgentPosition = newAgentPos;
-            CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition,AgentPosition,1);
+            CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
             if (newOtherPath != null)
             {
                 OtherPosition = newOtherPath[0];
             }
-            
+
+            //movimiento agente
+            /*if (terminal_state)
+            {
+                state = RandomState()
+            }
+            state = getstategraph(agentposition, otherpos);
+            action = selecaction(state, available_actions);
+            next_state, reward = moveAgentOther(state, action);
+            updateQtable(state, action, next_state, reward)*/
+
+
+
+
+
 
 
 
