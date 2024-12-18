@@ -19,10 +19,42 @@ namespace GrupoB
         private bool _eEnemy;
         private bool _wEnemy;
 
-        private bool enemyNear;//cerca o lejos
-        
+        private bool enemyNear = false;//cerca o lejos
+        private float distance = 0;
+        private float threshold = 4;
+
+        private CellInfo up;
+        private CellInfo down;
+        private CellInfo left;
+        private CellInfo rigth;
 
         private int _idState;
+
+        public State(CellInfo agentPosition, CellInfo otherPosition)
+        {
+            //distancia enemigo
+            distance = agentPosition.Distance(otherPosition, CellInfo.DistanceType.Manhattan);
+            if (distance <= threshold)
+            {
+                enemyNear = true;//enemigo cerca
+            }
+
+            //muros
+            up = new CellInfo(agentPosition.x, agentPosition.y + 1);
+            down = new CellInfo(agentPosition.x, agentPosition.y - 1);
+            left = new CellInfo(agentPosition.x-1, agentPosition.y);
+            rigth = new CellInfo(agentPosition.x+1, agentPosition.y);
+
+            _nWall = !up.Walkable;
+            _sWall = !down.Walkable;
+            _eWall = !left.Walkable;
+            _wWall = !rigth.Walkable;
+
+            //direccion enemigo
+            _nEnemy = agentPosition.y - otherPosition.y;
+
+
+        }
 
         public State(bool nWall, bool sWall, bool eWall, bool wWall, bool nEnemy, bool sEnemy, bool eEnemy, bool wEnemy, bool enemyNear, int idState)
         {
