@@ -154,6 +154,7 @@ namespace GrupoB
             float actualQValue = _qTable.GetQValue(state, action);
             float bestNextQValue = _qTable.GetMaxQValue(nextState);
             float newQValue = (1 - alpha) * actualQValue + alpha * (reward + gamma * bestNextQValue);
+            _qTable.UpdateQValue(state,action,newQValue);
         }
 
         private float CalculateReward(CellInfo agentPosition, CellInfo otherPosition)

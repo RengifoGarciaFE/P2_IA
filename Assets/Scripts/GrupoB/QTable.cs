@@ -13,7 +13,7 @@ namespace GrupoB
     {
         public int actions;//numero de columnas (una por accion), filas son los estados
         public Dictionary<State, float[]> qTable;
-
+        //(mirar hacer un id de state en vez de poner todo el state)*******************
         public QTable()
         {
             actions = 4;
@@ -128,6 +128,11 @@ namespace GrupoB
         public float GetMaxQValue(State state)
         {
             return 0;
+        }
+
+        public void UpdateQValue(State state, int action, float newValue)
+        {
+
         }
     }
 }

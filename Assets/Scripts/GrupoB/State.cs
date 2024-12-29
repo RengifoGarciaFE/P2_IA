@@ -21,7 +21,7 @@ namespace GrupoB
 
         public bool enemyNear = false;//cerca o lejos
         private float distance = 0;
-        private float threshold = 4;
+        private const float threshold = 4;
 
         private CellInfo up;
         private CellInfo down;
