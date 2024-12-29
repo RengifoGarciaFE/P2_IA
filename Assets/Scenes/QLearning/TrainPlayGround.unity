@@ -579,8 +579,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   agent: {fileID: 1824630789}
   other: {fileID: 1518200256}
-  qLearningTrainerClass: QMind.QMindTrainerDummy, Assembly-CSharp, Version=0.0.0.0,
-    Culture=neutral, PublicKeyToken=null
+  qLearningTrainerClass: GrupoB.QMindTrainer, Assembly-CSharp, Version=0.0.0.0, Culture=neutral,
+    PublicKeyToken=null
   showSimulation: 1
   agentSpeed: 3
   train: 1

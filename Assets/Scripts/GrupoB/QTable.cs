@@ -122,17 +122,31 @@ namespace GrupoB
 
         public float GetQValue(State state, int action)
         {
-            return 0;
+            float[] qValues = qTable[state];//cogemos valor de la accion del estado indicado
+            return qValues[action];
         }
 
         public float GetMaxQValue(State state)
         {
-            return 0;
+            float[] qValues = qTable[state];
+            float maxValue = qValues[0];
+
+            for (int i = 1; i < qValues.Length; i++)//recorremos la lista de qValues de las acciones en busca del mayor
+            {
+                if (qValues[i] > maxValue)
+                {
+                    maxValue = qValues[i];
+                   
+                }
+            }
+            return maxValue;
         }
 
         public void UpdateQValue(State state, int action, float newValue)
         {
-
+            float[] qValues = qTable[state];//actualizar valor de una accion del estado indicado
+            qValues[action] = newValue;
+            qTable[state] = qValues;
         }
     }
 }

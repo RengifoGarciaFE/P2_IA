@@ -138,7 +138,7 @@ namespace GrupoB
             //AgentPosition = newAgentPos;
             //mov Enemigo (nueva posicion del enemigo usando el algoritmo A*)
             CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
-            CellInfo newOtherPos = newOtherPath[0];
+            CellInfo newOtherPos = newOtherPath[0];//////////////**************************A VECES DA INDEXOUTOFBOUNDS  
             /*if (newOtherPath != null)
             {
                 newOtherPos = newOtherPath[0];
