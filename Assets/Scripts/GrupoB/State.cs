@@ -9,17 +9,17 @@ namespace GrupoB
     public class State : MonoBehaviour
     {
 
-        private bool _nWall;
-        private bool _sWall;
-        private bool _eWall;
-        private bool _wWall;
+        public bool nWall;
+        public bool sWall;
+        public bool eWall;
+        public bool wWall;
 
-        private bool _nEnemy;
+        public bool nEnemy;
         //private bool _sEnemy;
-        private bool _eEnemy;
+        public bool eEnemy;
         //private bool _wEnemy;
 
-        private bool enemyNear = false;//cerca o lejos
+        public bool enemyNear = false;//cerca o lejos
         private float distance = 0;
         private float threshold = 4;
 
@@ -49,44 +49,34 @@ namespace GrupoB
             left = new CellInfo(agentPosition.x-1, agentPosition.y);
             rigth = new CellInfo(agentPosition.x+1, agentPosition.y);
 
-            _nWall = !up.Walkable;
-            _sWall = !down.Walkable;
-            _eWall = !left.Walkable;
-            _wWall = !rigth.Walkable;
+            nWall = !up.Walkable;
+            sWall = !down.Walkable;
+            eWall = !left.Walkable;
+            wWall = !rigth.Walkable;
 
             //direccion enemigo
-            _nEnemy = otherPosition.y > agentPosition.y; // Enemigo está arriba si su Y es mayor, si false abajo
+            nEnemy = otherPosition.y > agentPosition.y; // Enemigo está arriba si su Y es mayor, si false abajo
             //_sEnemy = otherPosition.y < agentPosition.y; // Enemigo está al sur si su Y es menor
-            _eEnemy = otherPosition.x > agentPosition.x; // Enemigo está a la derecha si su X es mayor, si false izquierda
+            eEnemy = otherPosition.x > agentPosition.x; // Enemigo está a la derecha si su X es mayor, si false izquierda
             //_wEnemy = otherPosition.x < agentPosition.x; // Enemigo está al oeste si su X es menor
 
 
         }
 
-        public State(bool nWall, bool sWall, bool eWall, bool wWall, bool nEnemy, bool sEnemy, bool eEnemy, bool wEnemy, bool enemyNear, int idState)
+        public State() { }
+        public State(bool nWall, bool sWall, bool eWall, bool wWall, bool nEnemy, bool eEnemy, bool enemyNear)
         {
-            NWall = nWall;
-            SWall = sWall;
-            EWall = eWall;
-            WWall = wWall;
-            NEnemy = nEnemy;
-            //SEnemy = sEnemy;
-            EEnemy = eEnemy;
-            //WEnemy = wEnemy;
-            this.EnemyNear = enemyNear;
-            IdState = idState;
-        }
+            this.nWall = nWall;
+            this.sWall = sWall;
+            this.eWall = eWall;
+            this.wWall = wWall;
+            this.nEnemy = nEnemy;
+            this.eEnemy = eEnemy;
+            this.enemyNear = enemyNear;
 
-        public bool NWall { get => _nWall; set => _nWall = value; }
-        public bool SWall { get => _sWall; set => _sWall = value; }
-        public bool EWall { get => _eWall; set => _eWall = value; }
-        public bool WWall { get => _wWall; set => _wWall = value; }
-        public bool NEnemy { get => _nEnemy; set => _nEnemy = value; }
-        //public bool SEnemy { get => _sEnemy; set => _sEnemy = value; }
-        public bool EEnemy { get => _eEnemy; set => _eEnemy = value; }
-        //public bool WEnemy { get => _wEnemy; set => _wEnemy = value; }
-        public bool EnemyNear { get => enemyNear; set => enemyNear = value; }
-        public int IdState { get => _idState; set => _idState = value; }
+
+        }
+        
     }
 }
 

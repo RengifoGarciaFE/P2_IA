@@ -28,6 +28,7 @@ namespace GrupoB
         private INavigationAlgorithm _navigationAlgorithm;
 
         private QTable _qTable;
+        private int _episodeCount=0;
 
         private bool terminal_state;
 
@@ -102,6 +103,12 @@ namespace GrupoB
             //reiniciar el entorno
             AgentPosition = _worldInfo.RandomCell();
             OtherPosition = _worldInfo.RandomCell();
+            terminal_state = false;
+            _episodeCount++;
+            if (_episodeCount % _qMindTrainerParams.episodesBetweenSaves == 0)
+            {
+                _qTable.Save();
+            }
             OnEpisodeStarted?.Invoke(this, EventArgs.Empty);//¿?
         }
 
@@ -144,13 +151,39 @@ namespace GrupoB
         private void UpdateQtable(State state, int action, float reward, State nextState) 
         {
             //actualizar los valores de la tabla con la ecuacion de la regla de aprendizaje
+            float actualQValue = _qTable.GetQValue(state, action);
+            float bestNextQValue = _qTable.GetMaxQValue(nextState);
+            float newQValue = (1 - alpha) * actualQValue + alpha * (reward + gamma * bestNextQValue);
         }
 
         private float CalculateReward(CellInfo agentPosition, CellInfo otherPosition)
         {
             //devolver la recompensa segun el estado nuevo
-
-            return 0;
+            float actualDistance = AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan);
+            float newDistance = agentPosition.Distance(otherPosition, CellInfo.DistanceType.Manhattan);
+            bool near = newDistance <= 2; //si esta al lado del enemigo
+            float reward = 0;
+            //Si no caminable, o nos captura -> penalizacion y terminal state
+            if (!agentPosition.Walkable || agentPosition.x == otherPosition.x && agentPosition.y == otherPosition.y)
+            {
+                terminal_state = true;
+                return -1000;
+            }
+            //si nos alejamos -> recompensa
+            if(newDistance > actualDistance)
+            {
+                reward = +100;
+            }
+            else//si nos acercamos -> penalizacion
+            {
+                if (near) //si estamos al lado, mas penalizacion
+                {
+                    reward = -100;
+                }
+                reward = -20;
+            }
+            
+            return reward;
         }
     }
 
