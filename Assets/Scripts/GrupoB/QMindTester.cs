@@ -1,21 +1,22 @@
+using NavigationDJIA.World;
+using QMind.Interfaces;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace GrupoB
 {
-    public class QMindTester : MonoBehaviour
+    public class QMindTester : IQMind
     {
-        // Start is called before the first frame update
-        void Start()
+        public void Initialize(WorldInfo worldInfo)
         {
-
+            Debug.Log("QMindDummy: initialized");
         }
 
-        // Update is called once per frame
-        void Update()
+        public CellInfo GetNextStep(CellInfo currentPosition, CellInfo otherPosition)
         {
-
+            Debug.Log("QMindDummy: GetNextStep");
+            return null;
         }
     }
 }

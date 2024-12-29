@@ -27,6 +27,8 @@ namespace GrupoB
         private WorldInfo _worldInfo;
         private INavigationAlgorithm _navigationAlgorithm;
 
+        private QTable _qTable;
+
         private bool terminal_state;
 
         public float epsilon;
@@ -41,7 +43,7 @@ namespace GrupoB
             _qMindTrainerParams = qMindTrainerParams;
             navigationAlgorithm.Initialize(_worldInfo);
             _navigationAlgorithm = navigationAlgorithm;
-            
+            _qTable = new QTable();
 
             Debug.Log("QMindTrainerDummy: initialized");
             AgentPosition = worldInfo.RandomCell();
@@ -79,6 +81,7 @@ namespace GrupoB
             if (terminal_state)
             {
                 ReturnAveraged = (float)(ReturnAveraged * 0.9 + Return * 0.1);
+                OnEpisodeFinished?.Invoke(this, EventArgs.Empty);//¿?
                 ResetEnvironment();
             }
             State state = new State(AgentPosition, OtherPosition);
@@ -94,15 +97,61 @@ namespace GrupoB
 
         }
 
-        private void ResetEnvironment() { }
+        private void ResetEnvironment() 
+        {
+            //reiniciar el entorno
+            AgentPosition = _worldInfo.RandomCell();
+            OtherPosition = _worldInfo.RandomCell();
+            OnEpisodeStarted?.Invoke(this, EventArgs.Empty);//¿?
+        }
 
-        private int selectAction(State state) { return 0; }
+        private int selectAction(State state)
+        {
+            //seleccionar accion de forma a aleatroia (epsilon) o la que mayor valor tenga en la tabla
+            float random = Random.value;
+            int action;
+            if(random <= epsilon)
+            {
+                //Accion aleatoria
+                action = Random.Range(0, _qTable.actions);
+                return action;
+            }
+            else
+            {
+                //Accion de mayor valor Q
+                action = _qTable.GetAction(state);
+                return action;
+            }         
+        }
 
-        private (CellInfo, CellInfo) UpdateEnvironment(int action) { return }
+        private (CellInfo, CellInfo) UpdateEnvironment(int action) 
+        {
+            //mov Agente (nueva poscion del agente usando la accion)
+            CellInfo newAgentPos = _worldInfo.NextCell(AgentPosition, _worldInfo.AllowedMovements.FromIntValue(action));
+            //AgentPosition = newAgentPos;
+            //mov Enemigo (nueva posicion del enemigo usando el algoritmo A*)
+            CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
+            CellInfo newOtherPos = newOtherPath[0];
+            /*if (newOtherPath != null)
+            {
+                newOtherPos = newOtherPath[0];
+            }*/
 
-        private void UpdateQtable(State state, int action, float reward, State nextState) { }
+            return (newAgentPos,newOtherPos);
+                
+        }
 
-        private float CalculateReward(CellInfo agentPosition, CellInfo otherPosition) {  return 0; }
+        private void UpdateQtable(State state, int action, float reward, State nextState) 
+        {
+            //actualizar los valores de la tabla con la ecuacion de la regla de aprendizaje
+        }
+
+        private float CalculateReward(CellInfo agentPosition, CellInfo otherPosition)
+        {
+            //devolver la recompensa segun el estado nuevo
+
+            return 0;
+        }
     }
 
     

@@ -7,17 +7,16 @@ namespace GrupoB
 {
     public class QTable : MonoBehaviour
     {
+        public int actions;
 
-        // Start is called before the first frame update
-        void Start()
+        public QTable()
         {
 
         }
 
-        // Update is called once per frame
-        void Update()
+        public int GetAction(State state)
         {
-
+            return 0;
         }
     }
 }
