@@ -14,11 +14,11 @@ namespace GrupoB
 {
     public class QMindTrainer : IQMindTrainer
     {
-        public int CurrentEpisode { get; }
-        public int CurrentStep { get; }
+        public int CurrentEpisode { get; private set; }
+        public int CurrentStep { get; private set; }
         public CellInfo AgentPosition { get; private set; } //agente que estamos implementando, aca vez que se actualiza va alli
         public CellInfo OtherPosition { get; private set; } //posicion del enemigo
-        public float Return { get; }
+        public float Return { get; private set; }
         public float ReturnAveraged { get; private set; }
         public event EventHandler OnEpisodeStarted;
         public event EventHandler OnEpisodeFinished;
@@ -29,6 +29,7 @@ namespace GrupoB
 
         private QTable _qTable;
         private int _episodeCount=0;
+        private int _stepCount = 0;
 
         private bool terminal_state;
 
@@ -95,7 +96,8 @@ namespace GrupoB
             AgentPosition = newAgentPosition;
             OtherPosition = newOtherPosition;
 
-
+            _stepCount++;
+            CurrentStep = _stepCount;
         }
 
         private void ResetEnvironment() 
@@ -105,6 +107,9 @@ namespace GrupoB
             OtherPosition = _worldInfo.RandomCell();
             terminal_state = false;
             _episodeCount++;
+            CurrentEpisode = _episodeCount;
+            _stepCount = 0;
+            CurrentStep = _stepCount;
             if (_episodeCount % _qMindTrainerParams.episodesBetweenSaves == 0)
             {
                 _qTable.Save();
@@ -138,11 +143,14 @@ namespace GrupoB
             //AgentPosition = newAgentPos;
             //mov Enemigo (nueva posicion del enemigo usando el algoritmo A*)
             CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
-            CellInfo newOtherPos = newOtherPath[0];//////////////**************************A VECES DA INDEXOUTOFBOUNDS  
-            /*if (newOtherPath != null)
+            CellInfo newOtherPos = OtherPosition;
+            try
             {
-                newOtherPos = newOtherPath[0];
-            }*/
+                if (newOtherPath[0] != null)//a veces daba error por null
+                {
+                    newOtherPos = newOtherPath[0];
+                }
+            }catch(Exception e) { }
 
             return (newAgentPos,newOtherPos);
                 
@@ -165,10 +173,15 @@ namespace GrupoB
             bool near = newDistance <= 2; //si esta al lado del enemigo
             float reward = 0;
             //Si no caminable, o nos captura -> penalizacion y terminal state
-            if (!agentPosition.Walkable || agentPosition.x == otherPosition.x && agentPosition.y == otherPosition.y)
+            if (!agentPosition.Walkable) 
             {
                 terminal_state = true;
-                return -1000;
+                return -10000;
+            }
+            if (agentPosition.x == otherPosition.x && agentPosition.y == otherPosition.y)
+            {
+                terminal_state = true;
+                return -100;
             }
             //si nos alejamos -> recompensa
             if(newDistance > actualDistance)
@@ -181,9 +194,9 @@ namespace GrupoB
                 {
                     reward = -100;
                 }
-                reward = -20;
+                reward = -10;
             }
-            
+            Return = reward;//¿?
             return reward;
         }
     }

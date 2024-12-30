@@ -28,7 +28,7 @@ namespace GrupoB
         private CellInfo left;
         private CellInfo rigth;
 
-        private int _idState;
+        public string idState;
 
         public State(CellInfo agentPosition, CellInfo otherPosition)
         {
@@ -60,7 +60,7 @@ namespace GrupoB
             eEnemy = otherPosition.x > agentPosition.x; // Enemigo está a la derecha si su X es mayor, si false izquierda
             //_wEnemy = otherPosition.x < agentPosition.x; // Enemigo está al oeste si su X es menor
 
-
+            idState = GenerateId();
         }
 
         public State() { }
@@ -76,7 +76,18 @@ namespace GrupoB
 
 
         }
-        
+
+        private string GenerateId()
+        {
+            return $"{(nWall ? 1 : 0)}" +
+                   $"{(sWall ? 1 : 0)}" +
+                   $"{(eWall ? 1 : 0)}" +
+                   $"{(wWall ? 1 : 0)}" +
+                   $"{(nEnemy ? 1 : 0)}" +
+                   $"{(eEnemy ? 1 : 0)}" +
+                   $"{(enemyNear ? 1 : 0)}";
+        }
+
     }
 }
 

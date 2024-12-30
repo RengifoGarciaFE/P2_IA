@@ -12,19 +12,30 @@ namespace GrupoB
     public class QTable : MonoBehaviour
     {
         public int actions;//numero de columnas (una por accion), filas son los estados
-        public Dictionary<State, float[]> qTable;
+        public Dictionary<string, float[]> qTable;
         //(mirar hacer un id de state en vez de poner todo el state)*******************
         public QTable()
         {
             actions = 4;
-            qTable= new Dictionary<State, float[]>();
+            qTable= new Dictionary<string, float[]>();
 
         }
 
         public void Save()
         {
-            File.WriteAllLines(@"Assets/Scripts/GrupoB/TablaQ.csv",
-                ConvertCsv(qTable));
+            string filePath = @"Assets/Scripts/GrupoB/TablaQ.csv";
+
+            /*// Obtener el directorio del archivo
+            string directory = Path.GetDirectoryName(filePath);
+
+            // Verificar si el directorio existe
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory); // Crear el directorio si no existe
+            }*/
+
+            // Escribir el archivo
+            File.WriteAllLines(filePath, ConvertCsv(qTable));
         }
 
         public void Load()
@@ -62,7 +73,7 @@ namespace GrupoB
                     }
 
                     // Agregar el estado y sus valores Q al diccionario
-                    qTable[state] = qValues;
+                    qTable[state.idState] = qValues;
                 }
 
                 Debug.Log($"Tabla Q cargada correctamente desde Assets/Scripts/GrupoB/TablaQ.csv");
@@ -73,20 +84,22 @@ namespace GrupoB
             }
         }
 
-        private IEnumerable<string> ConvertCsv(Dictionary<State, float[]> qTable)
+        private IEnumerable<string> ConvertCsv(Dictionary<string, float[]> qTable)
         {
             List<string> lines = new List<string>();
 
             // Iterar sobre cada entrada en la tabla Q
             foreach (var entry in qTable)
             {
-                State state = entry.Key;
+                //State state = entry.Key;
                 float[] qValues = entry.Value;
 
                 // Convertir el estado a una cadena CSV
-                string stateString = $"{state.nWall},{state.sWall},{state.eWall},{state.wWall}," +
+                /*string stateString = $"{state.nWall},{state.sWall},{state.eWall},{state.wWall}," +
                                      $"{state.nEnemy},{state.eEnemy}," +
-                                     $"{state.enemyNear}";
+                                     $"{state.enemyNear}";*/
+
+                string stateString =entry.Key;
 
                 // Convertir los valores Q a una cadena CSV
                 string qValuesString = string.Join(",", qValues);
@@ -100,12 +113,12 @@ namespace GrupoB
 
         public int GetAction(State state)
         {
-            if (!qTable.ContainsKey(state))//si el estado no esta en la tabla se inicializa a 0
+            if (!qTable.ContainsKey(state.idState))//si el estado no esta en la tabla se inicializa a 0
             {
-                qTable[state] = new float[actions];
+                qTable[state.idState] = new float[actions];
             }
 
-            float[] qValues = qTable[state];
+            float[] qValues = qTable[state.idState];
             float maxValue = qValues[0];
             int action = 0;
 
@@ -117,18 +130,32 @@ namespace GrupoB
                     action = i;
                 }
             }
+            Debug.Log("///////////////////Diccionario/////////////");
+            foreach(var value in qTable)
+            {
+                Debug.Log($"Clave: {value.Key}, Valor: {value.Value}");
+            }
             return action;
         }
 
         public float GetQValue(State state, int action)
         {
-            float[] qValues = qTable[state];//cogemos valor de la accion del estado indicado
+            if (!qTable.ContainsKey(state.idState))//si el estado no esta en la tabla se inicializa a 0
+            {
+                qTable[state.idState] = new float[actions];
+            }
+
+            float[] qValues = qTable[state.idState];//cogemos valor de la accion del estado indicado
             return qValues[action];
         }
 
         public float GetMaxQValue(State state)
         {
-            float[] qValues = qTable[state];
+            if (!qTable.ContainsKey(state.idState))//si el estado no esta en la tabla se inicializa a 0
+            {
+                qTable[state.idState] = new float[actions];
+            }
+            float[] qValues = qTable[state.idState];
             float maxValue = qValues[0];
 
             for (int i = 1; i < qValues.Length; i++)//recorremos la lista de qValues de las acciones en busca del mayor
@@ -144,9 +171,13 @@ namespace GrupoB
 
         public void UpdateQValue(State state, int action, float newValue)
         {
-            float[] qValues = qTable[state];//actualizar valor de una accion del estado indicado
+            if (!qTable.ContainsKey(state.idState))//si el estado no esta en la tabla se inicializa a 0
+            {
+                qTable[state.idState] = new float[actions];
+            }
+            float[] qValues = qTable[state.idState];//actualizar valor de una accion del estado indicado
             qValues[action] = newValue;
-            qTable[state] = qValues;
+            qTable[state.idState] = qValues;
         }
     }
 }
