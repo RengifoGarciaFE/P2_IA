@@ -44,36 +44,27 @@ namespace GrupoB
             {
                 string[] lines = File.ReadAllLines(@"Assets/Scripts/GrupoB/TablaQ.csv");
 
-                // Limpiar el diccionario actual (si es necesario)
+                // Limpiar el diccionario actual
                 qTable.Clear();
 
-                // Saltar la primera línea si contiene encabezados
-                for (int i = 1; i < lines.Length; i++)
+                // Iterar cada por cada linea
+                foreach (string line in lines)
                 {
-                    string line = lines[i];
+                    // Separar la linea 
                     string[] parts = line.Split(',');
 
-                    // Parsear el estado (las primeras columnas)
-                    State state = new State
-                    {
-                        nWall = bool.Parse(parts[0]),
-                        sWall = bool.Parse(parts[1]),
-                        eWall = bool.Parse(parts[2]),
-                        wWall = bool.Parse(parts[3]),
-                        nEnemy = bool.Parse(parts[4]),
-                        eEnemy = bool.Parse(parts[5]),
-                        enemyNear = bool.Parse(parts[6])
-                    };
+                    //idState
+                    string idState = parts[0];
 
-                    // Parsear los valores Q (las columnas restantes)
+                    // Las siguientes partes son los valores Q
                     float[] qValues = new float[actions];
-                    for (int j = 0; j < actions; j++)
+                    for (int i = 0; i < actions; i++)
                     {
-                        qValues[j] = float.Parse(parts[9 + j]);
+                        qValues[i] = float.Parse(parts[i + 1]);
                     }
 
-                    // Agregar el estado y sus valores Q al diccionario
-                    qTable[state.idState] = qValues;
+                    // Agregar la clave y los valores al diccionario
+                    qTable[idState] = qValues;
                 }
 
                 Debug.Log($"Tabla Q cargada correctamente desde Assets/Scripts/GrupoB/TablaQ.csv");

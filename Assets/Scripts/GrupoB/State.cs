@@ -30,7 +30,7 @@ namespace GrupoB
 
         public string idState;
 
-        public State(CellInfo agentPosition, CellInfo otherPosition)
+        public State(CellInfo agentPosition, CellInfo otherPosition, WorldInfo worldInfo)
         {
             //distancia enemigo
             distance = agentPosition.Distance(otherPosition, CellInfo.DistanceType.Manhattan);
@@ -44,15 +44,15 @@ namespace GrupoB
             }
 
             //muros
-            up = new CellInfo(agentPosition.x, agentPosition.y + 1);
-            down = new CellInfo(agentPosition.x, agentPosition.y - 1);
-            left = new CellInfo(agentPosition.x-1, agentPosition.y);
-            rigth = new CellInfo(agentPosition.x+1, agentPosition.y);
+            up = worldInfo.NextCell(agentPosition, worldInfo.AllowedMovements.FromIntValue(0));//0 = arriba (logica de array Directions)
+            down = worldInfo.NextCell(agentPosition, worldInfo.AllowedMovements.FromIntValue(2));// 2 = abajo
+            left = worldInfo.NextCell(agentPosition, worldInfo.AllowedMovements.FromIntValue(3));
+            rigth = worldInfo.NextCell(agentPosition, worldInfo.AllowedMovements.FromIntValue(1));
 
             nWall = !up.Walkable;
             sWall = !down.Walkable;
-            eWall = !left.Walkable;
-            wWall = !rigth.Walkable;
+            eWall = !rigth.Walkable;
+            wWall = !left.Walkable;
 
             //direccion enemigo
             nEnemy = otherPosition.y > agentPosition.y; // Enemigo está arriba si su Y es mayor, si false abajo

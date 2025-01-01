@@ -86,10 +86,10 @@ namespace GrupoB
                 OnEpisodeFinished?.Invoke(this, EventArgs.Empty);//¿?
                 ResetEnvironment();
             }
-            State state = new State(AgentPosition, OtherPosition);
+            State state = new State(AgentPosition, OtherPosition, _worldInfo);
             int action = selectAction(state);
             (CellInfo newAgentPosition, CellInfo newOtherPosition) = UpdateEnvironment(action);
-            State nextState = new State(newAgentPosition, newOtherPosition);
+            State nextState = new State(newAgentPosition, newOtherPosition, _worldInfo);
             float reward = CalculateReward(newAgentPosition, newOtherPosition);
             UpdateQtable(state, action, reward, nextState);
 
