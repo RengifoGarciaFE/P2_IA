@@ -122,10 +122,10 @@ namespace GrupoB
                 }
             }
             Debug.Log("///////////////////Diccionario/////////////");
-            foreach(var value in qTable)
+            /*foreach(var value in qTable)
             {
                 Debug.Log($"Clave: {value.Key}, Valor: {value.Value}");
-            }
+            }*/
             return action;
         }
 

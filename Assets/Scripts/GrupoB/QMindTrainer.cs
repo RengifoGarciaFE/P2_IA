@@ -5,6 +5,7 @@ using QMind.Interfaces;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -16,8 +17,8 @@ namespace GrupoB
     {
         public int CurrentEpisode { get; private set; }
         public int CurrentStep { get; private set; }
-        public CellInfo AgentPosition { get; private set; } //agente que estamos implementando, aca vez que se actualiza va alli
-        public CellInfo OtherPosition { get; private set; } //posicion del enemigo
+        public CellInfo AgentPosition { get; private set; }
+        public CellInfo OtherPosition { get; private set; }
         public float Return { get; private set; }
         public float ReturnAveraged { get; private set; }
         public event EventHandler OnEpisodeStarted;
@@ -28,7 +29,7 @@ namespace GrupoB
         private INavigationAlgorithm _navigationAlgorithm;
 
         private QTable _qTable;
-        private int _episodeCount=0;
+        private int _episodeCount = 0;
         private int _stepCount = 0;
 
         private bool terminal_state;
@@ -37,55 +38,59 @@ namespace GrupoB
         public float alpha;
         public float gamma;
 
+        public float maxReturnAveraged = float.MinValue; // Almacenará el máximo valor de ReturnAveraged
+        public float minReturnAveraged = float.MaxValue; // Almacenará el mínimo valor de ReturnAveraged
 
         public void Initialize(QMindTrainerParams qMindTrainerParams, WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
         {
-            //inicializamos atributos de la clase para poder acceder a ellos
+            // Inicialización como antes
             _worldInfo = worldInfo;
             _qMindTrainerParams = qMindTrainerParams;
             navigationAlgorithm.Initialize(_worldInfo);
             _navigationAlgorithm = navigationAlgorithm;
             _qTable = new QTable();
 
+            string filePath = @"Assets/Scripts/GrupoB/TablaQ.csv";
+            // Obtener el directorio del archivo
+            string directory = Path.GetDirectoryName(filePath);
+            // Verificar si el directorio existe
+            if (File.Exists(directory))
+            {
+                Debug.Log("existe: " + Directory.Exists(directory));
+                _qTable.Load();
+            }
+
             Debug.Log("QMindTrainerDummy: initialized");
             AgentPosition = worldInfo.RandomCell();
             OtherPosition = worldInfo.RandomCell();
             OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
+
             epsilon = _qMindTrainerParams.epsilon;
             alpha = _qMindTrainerParams.alpha;
             gamma = _qMindTrainerParams.gamma;
         }
-        
-
 
         public void DoStep(bool train)
         {
-            //movimiento enemigo
-            /*int action = Random.Range(0, 4);
-            CellInfo newAgentPos = _worldInfo.NextCell(AgentPosition, _worldInfo.AllowedMovements.FromIntValue(action));
-            AgentPosition = newAgentPos;
-            CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
-            if (newOtherPath != null)
-            {
-                OtherPosition = newOtherPath[0];
-            }*/
-
-            //movimiento agente
-            /*if (terminal_state)
-            {
-                state = RandomState()
-            }
-            state = getstategraph(agentposition, otherpos);
-            action = selecaction(state, available_actions);
-            next_state, reward = moveAgentOther(state, action);
-            updateQtable(state, action, next_state, reward)*/
-
             if (terminal_state)
             {
                 ReturnAveraged = (float)(ReturnAveraged * 0.9 + Return * 0.1);
-                OnEpisodeFinished?.Invoke(this, EventArgs.Empty);//¿?
+                if (ReturnAveraged > maxReturnAveraged) // Actualizar el valor máximo
+                {
+                    maxReturnAveraged = ReturnAveraged;
+                }
+
+                if (ReturnAveraged < minReturnAveraged) // Actualizar el valor mínimo
+                {
+                    minReturnAveraged = ReturnAveraged;
+                }
+
+                ShowMaxReturnAveraged();  // Mostrar el máximo después de cada episodio
+                ShowMinReturnAveraged();  // Mostrar el mínimo después de cada episodio
+                OnEpisodeFinished?.Invoke(this, EventArgs.Empty);
                 ResetEnvironment();
             }
+
             State state = new State(AgentPosition, OtherPosition, _worldInfo);
             int action = selectAction(state);
             (CellInfo newAgentPosition, CellInfo newOtherPosition) = UpdateEnvironment(action);
@@ -100,7 +105,7 @@ namespace GrupoB
             CurrentStep = _stepCount;
         }
 
-        private void ResetEnvironment() 
+        private void ResetEnvironment()
         {
             //reiniciar el entorno
             AgentPosition = _worldInfo.RandomCell();
@@ -110,19 +115,21 @@ namespace GrupoB
             CurrentEpisode = _episodeCount;
             _stepCount = 0;
             CurrentStep = _stepCount;
+
             if (_episodeCount % _qMindTrainerParams.episodesBetweenSaves == 0)
             {
                 _qTable.Save();
             }
-            OnEpisodeStarted?.Invoke(this, EventArgs.Empty);//¿?
+
+            OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
         }
 
         private int selectAction(State state)
         {
-            //seleccionar accion de forma a aleatroia (epsilon) o la que mayor valor tenga en la tabla
+            //seleccionar accion de forma aleatoria (epsilon) o la que mayor valor tenga en la tabla
             float random = Random.value;
             int action;
-            if(random <= epsilon)
+            if (random <= epsilon)
             {
                 //Accion aleatoria
                 action = Random.Range(0, _qTable.actions);
@@ -133,14 +140,13 @@ namespace GrupoB
                 //Accion de mayor valor Q
                 action = _qTable.GetAction(state);
                 return action;
-            }         
+            }
         }
 
-        private (CellInfo, CellInfo) UpdateEnvironment(int action) 
+        private (CellInfo, CellInfo) UpdateEnvironment(int action)
         {
             //mov Agente (nueva poscion del agente usando la accion)
             CellInfo newAgentPos = _worldInfo.NextCell(AgentPosition, _worldInfo.AllowedMovements.FromIntValue(action));
-            //AgentPosition = newAgentPos;
             //mov Enemigo (nueva posicion del enemigo usando el algoritmo A*)
             CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
             CellInfo newOtherPos = OtherPosition;
@@ -150,19 +156,19 @@ namespace GrupoB
                 {
                     newOtherPos = newOtherPath[0];
                 }
-            }catch(Exception e) { }
+            }
+            catch (Exception e) { }
 
-            return (newAgentPos,newOtherPos);
-                
+            return (newAgentPos, newOtherPos);
         }
 
-        private void UpdateQtable(State state, int action, float reward, State nextState) 
+        private void UpdateQtable(State state, int action, float reward, State nextState)
         {
             //actualizar los valores de la tabla con la ecuacion de la regla de aprendizaje
             float actualQValue = _qTable.GetQValue(state, action);
             float bestNextQValue = _qTable.GetMaxQValue(nextState);
             float newQValue = (1 - alpha) * actualQValue + alpha * (reward + gamma * bestNextQValue);
-            _qTable.UpdateQValue(state,action,newQValue);
+            _qTable.UpdateQValue(state, action, newQValue);
         }
 
         private float CalculateReward(CellInfo agentPosition, CellInfo otherPosition)
@@ -172,36 +178,56 @@ namespace GrupoB
             float newDistance = agentPosition.Distance(otherPosition, CellInfo.DistanceType.Manhattan);
             bool near = newDistance <= 2; //si esta al lado del enemigo
             float reward = 0;
-            //Si no caminable, o nos captura -> penalizacion y terminal state
-            if (!agentPosition.Walkable) 
+
+            //Si no caminable, o nos captura -> penalización y terminal state
+            if (!agentPosition.Walkable)
             {
                 terminal_state = true;
-                return -10000;
+                reward -= 10000;
             }
+
             if (agentPosition.x == otherPosition.x && agentPosition.y == otherPosition.y)
             {
                 terminal_state = true;
-                return -100;
+                reward -=100;
             }
+
+
+            /*Debug.Log("nueva distancia " + newDistance);
+            Debug.Log("actual distancia " + newDistance);
+            */
+
             //si nos alejamos -> recompensa
-            if(newDistance > actualDistance)
+            if (newDistance > actualDistance)
             {
-                reward = +100;
+                reward += +100;
             }
-            else//si nos acercamos -> penalizacion
+            else //si nos acercamos -> penalización
             {
-                if (near) //si estamos al lado, mas penalizacion
+                if (near) //si estamos al lado, más penalización
                 {
-                    reward = -100;
+                    reward += -100;
                 }
-                reward = -10;
+                else
+                {
+                    reward += -10;
+                }
+                
             }
-            Return = reward;//¿?
+            Return = reward;
             return reward;
         }
+
+        // Función para mostrar el valor máximo de ReturnAveraged
+        public void ShowMaxReturnAveraged()
+        {
+            Debug.Log($"El valor máximo de ReturnAveraged alcanzado es: {maxReturnAveraged}");
+        }
+
+        // Función para mostrar el valor mínimo de ReturnAveraged
+        public void ShowMinReturnAveraged()
+        {
+            Debug.Log($"El valor mínimo de ReturnAveraged alcanzado es: {minReturnAveraged}");
+        }
     }
-
-    
-
 }
-
