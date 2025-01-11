@@ -31,6 +31,7 @@ namespace GrupoB
         private QTable _qTable;
         private int _episodeCount = 0;
         private int _stepCount = 0;
+        private float totalReward = 0;
 
         private bool terminal_state;
 
@@ -75,7 +76,7 @@ namespace GrupoB
             if (terminal_state)
             {
                 ReturnAveraged = (float)(ReturnAveraged * 0.9 + Return * 0.1);
-                if (ReturnAveraged > maxReturnAveraged) // Actualizar el valor máximo
+                /*if (ReturnAveraged > maxReturnAveraged) // Actualizar el valor máximo
                 {
                     maxReturnAveraged = ReturnAveraged;
                 }
@@ -86,7 +87,7 @@ namespace GrupoB
                 }
 
                 ShowMaxReturnAveraged();  // Mostrar el máximo después de cada episodio
-                ShowMinReturnAveraged();  // Mostrar el mínimo después de cada episodio
+                ShowMinReturnAveraged();  // Mostrar el mínimo después de cada episodio*/
                 OnEpisodeFinished?.Invoke(this, EventArgs.Empty);
                 ResetEnvironment();
             }
@@ -96,6 +97,8 @@ namespace GrupoB
             (CellInfo newAgentPosition, CellInfo newOtherPosition) = UpdateEnvironment(action);
             State nextState = new State(newAgentPosition, newOtherPosition, _worldInfo);
             float reward = CalculateReward(newAgentPosition, newOtherPosition);
+            totalReward += reward;
+            Return = Mathf.Round(totalReward * 10) / 10;
             UpdateQtable(state, action, reward, nextState);
 
             AgentPosition = newAgentPosition;
@@ -183,13 +186,13 @@ namespace GrupoB
             if (!agentPosition.Walkable)
             {
                 terminal_state = true;
-                reward -= 10000;
+                return -10000;
             }
 
             if (agentPosition.x == otherPosition.x && agentPosition.y == otherPosition.y)
             {
                 terminal_state = true;
-                reward -=100;
+                return -100;
             }
 
 
@@ -200,21 +203,21 @@ namespace GrupoB
             //si nos alejamos -> recompensa
             if (newDistance > actualDistance)
             {
-                reward += +100;
+                reward += 100;
             }
             else //si nos acercamos -> penalización
             {
                 if (near) //si estamos al lado, más penalización
                 {
-                    reward += -100;
-                }
-                else
-                {
-                    reward += -10;
+                    reward -= 100;
                 }
                 
+                
+                reward -= 10;
+                
+                
             }
-            Return = reward;
+            
             return reward;
         }
 
