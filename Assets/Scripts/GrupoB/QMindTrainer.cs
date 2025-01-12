@@ -39,8 +39,6 @@ namespace GrupoB
         public float alpha;
         public float gamma;
 
-        public float maxReturnAveraged = float.MinValue; // Almacenará el máximo valor de ReturnAveraged
-        public float minReturnAveraged = float.MaxValue; // Almacenará el mínimo valor de ReturnAveraged
 
         public void Initialize(QMindTrainerParams qMindTrainerParams, WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
         {
@@ -55,9 +53,9 @@ namespace GrupoB
             // Obtener el directorio del archivo
             string directory = Path.GetDirectoryName(filePath);
             // Verificar si el directorio existe
-            if (File.Exists(directory))
+            if (File.Exists(filePath))
             {
-                Debug.Log("existe: " + Directory.Exists(directory));
+                Debug.Log("Archivo de tabla Q encontrado. Cargando...");
                 _qTable.Load();
             }
 
@@ -76,18 +74,6 @@ namespace GrupoB
             if (terminal_state)
             {
                 ReturnAveraged = (float)(ReturnAveraged * 0.9 + Return * 0.1);
-                /*if (ReturnAveraged > maxReturnAveraged) // Actualizar el valor máximo
-                {
-                    maxReturnAveraged = ReturnAveraged;
-                }
-
-                if (ReturnAveraged < minReturnAveraged) // Actualizar el valor mínimo
-                {
-                    minReturnAveraged = ReturnAveraged;
-                }
-
-                ShowMaxReturnAveraged();  // Mostrar el máximo después de cada episodio
-                ShowMinReturnAveraged();  // Mostrar el mínimo después de cada episodio*/
                 OnEpisodeFinished?.Invoke(this, EventArgs.Empty);
                 ResetEnvironment();
             }
@@ -172,6 +158,9 @@ namespace GrupoB
             float bestNextQValue = _qTable.GetMaxQValue(nextState);
             float newQValue = (1 - alpha) * actualQValue + alpha * (reward + gamma * bestNextQValue);
             _qTable.UpdateQValue(state, action, newQValue);
+            // Depuración: Ver cómo se actualiza el valor de Q
+            /*Debug.Log($"Estado: {state.idState}, Acción: {action}, Q actual: {actualQValue}, " +
+                      $"Recompensa: {reward}, Q siguiente: {bestNextQValue}, Nuevo Q: {newQValue}");*/
         }
 
         private float CalculateReward(CellInfo agentPosition, CellInfo otherPosition)
@@ -179,6 +168,8 @@ namespace GrupoB
             //devolver la recompensa segun el estado nuevo
             float actualDistance = AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan);
             float newDistance = agentPosition.Distance(otherPosition, CellInfo.DistanceType.Manhattan);
+
+
             bool near = newDistance <= 2; //si esta al lado del enemigo
             float reward = 0;
 
@@ -186,7 +177,7 @@ namespace GrupoB
             if (!agentPosition.Walkable)
             {
                 terminal_state = true;
-                return -10000;
+                return -1000;
             }
 
             if (agentPosition.x == otherPosition.x && agentPosition.y == otherPosition.y)
@@ -196,9 +187,8 @@ namespace GrupoB
             }
 
 
-            /*Debug.Log("nueva distancia " + newDistance);
-            Debug.Log("actual distancia " + newDistance);
-            */
+            //Debug.Log("nueva distancia " + newDistance + " actual distancia " + actualDistance);
+            
 
             //si nos alejamos -> recompensa
             if (newDistance > actualDistance)
@@ -211,26 +201,14 @@ namespace GrupoB
                 {
                     reward -= 100;
                 }
-                
-                
-                reward -= 10;
-                
-                
+                reward -= 10;      
             }
-            
+
+
+
+
             return reward;
         }
 
-        // Función para mostrar el valor máximo de ReturnAveraged
-        public void ShowMaxReturnAveraged()
-        {
-            Debug.Log($"El valor máximo de ReturnAveraged alcanzado es: {maxReturnAveraged}");
-        }
-
-        // Función para mostrar el valor mínimo de ReturnAveraged
-        public void ShowMinReturnAveraged()
-        {
-            Debug.Log($"El valor mínimo de ReturnAveraged alcanzado es: {minReturnAveraged}");
-        }
     }
 }

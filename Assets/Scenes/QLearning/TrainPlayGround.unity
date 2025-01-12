@@ -1564,7 +1564,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &414741301
 Transform:
   m_ObjectHideFlags: 0
@@ -1776,7 +1776,7 @@ MonoBehaviour:
     alpha: 0.2
     epsilon: 0.85
     gamma: 0.9
-    episodes: 20000
+    episodes: 100
     maxSteps: -1
     episodesBetweenSaves: 100
 --- !u!4 &430024629
@@ -3451,7 +3451,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1059465608
 MonoBehaviour:
   m_ObjectHideFlags: 0

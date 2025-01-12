@@ -1,4 +1,5 @@
 using NavigationDJIA.World;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -79,6 +80,8 @@ namespace GrupoB
 
         private string GenerateId()
         {
+
+            //return Guid.NewGuid().ToString();
             return $"{(nWall ? 1 : 0)}" +
                    $"{(sWall ? 1 : 0)}" +
                    $"{(eWall ? 1 : 0)}" +

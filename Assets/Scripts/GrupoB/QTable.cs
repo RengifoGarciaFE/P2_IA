@@ -137,6 +137,7 @@ namespace GrupoB
             }
 
             float[] qValues = qTable[state.idState];//cogemos valor de la accion del estado indicado
+            Debug.Log($"Obteniendo QValue para el estado {state.idState} y acción {action}. Total de acciones: {qValues.Length}");
             return qValues[action];
         }
 
@@ -167,6 +168,7 @@ namespace GrupoB
                 qTable[state.idState] = new float[actions];
             }
             float[] qValues = qTable[state.idState];//actualizar valor de una accion del estado indicado
+            Debug.Log($"Actualizando QValue para el estado {state.idState}, acción {action}. Total de acciones: {qValues.Length}");
             qValues[action] = newValue;
             qTable[state.idState] = qValues;
         }
