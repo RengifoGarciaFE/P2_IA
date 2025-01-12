@@ -51,7 +51,7 @@ namespace GrupoB
                 foreach (string line in lines)
                 {
                     // Separar la linea 
-                    string[] parts = line.Split(',');
+                    string[] parts = line.Split('|');
 
                     //idState
                     string idState = parts[0];
@@ -93,10 +93,10 @@ namespace GrupoB
                 string stateString =entry.Key;
 
                 // Convertir los valores Q a una cadena CSV
-                string qValuesString = string.Join(",", qValues);//cambio del separadaor para ver bien los valores de los numeros
+                string qValuesString = string.Join("|", qValues);//cambio del separadaor para ver bien los valores de los numeros
 
                 // Combinar el estado y los valores Q en una línea
-                lines.Add($"{stateString},{qValuesString}");
+                lines.Add($"{stateString}|{qValuesString}");
             }
 
             return lines;
