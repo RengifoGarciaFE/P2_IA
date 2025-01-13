@@ -44,6 +44,7 @@ namespace GrupoB
         {
             // Inicialización como antes
             _worldInfo = worldInfo;
+            Debug.Log(worldInfo.WorldSize.x + " " + worldInfo.WorldSize.y);
             _qMindTrainerParams = qMindTrainerParams;
             navigationAlgorithm.Initialize(_worldInfo);
             _navigationAlgorithm = navigationAlgorithm;
@@ -188,8 +189,11 @@ namespace GrupoB
 
 
             //Debug.Log("nueva distancia " + newDistance + " actual distancia " + actualDistance);
-            
 
+            if ((agentPosition.x == 0 && agentPosition.y == 19) || (agentPosition.x == 0 && agentPosition.y == 0) || (agentPosition.x == 19 && agentPosition.y == 0) || (agentPosition.x == 19 && agentPosition.y == 19))
+            {
+                reward -= 1000;
+            }
             //si nos alejamos -> recompensa
             if (newDistance > actualDistance)
             {
@@ -209,6 +213,7 @@ namespace GrupoB
 
             return reward;
         }
+
 
     }
 }
