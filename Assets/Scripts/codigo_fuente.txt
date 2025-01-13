@@ -1,0 +1,533 @@
+using NavigationDJIA.World;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace GrupoB 
+{
+    
+    public class State : MonoBehaviour
+    {
+
+        public bool nWall;
+        public bool sWall;
+        public bool eWall;
+        public bool wWall;
+
+        public bool nEnemy;
+        //private bool _sEnemy;
+        public bool eEnemy;
+        //private bool _wEnemy;
+
+        public bool enemyNear = false;//cerca o lejos
+        private float distance = 0;
+        private const float threshold = 4;
+
+        private CellInfo up;
+        private CellInfo down;
+        private CellInfo left;
+        private CellInfo rigth;
+
+        public string idState;
+
+        public State(CellInfo agentPosition, CellInfo otherPosition, WorldInfo worldInfo)
+        {
+            //distancia enemigo
+            distance = agentPosition.Distance(otherPosition, CellInfo.DistanceType.Manhattan);
+            if (distance <= threshold)
+            {
+                enemyNear = true;//enemigo cerca
+            }
+            else
+            {
+                enemyNear = false;//enemigo lejos
+            }
+
+            //muros
+            up = worldInfo.NextCell(agentPosition, worldInfo.AllowedMovements.FromIntValue(0));//0 = arriba (logica de array Directions)
+            down = worldInfo.NextCell(agentPosition, worldInfo.AllowedMovements.FromIntValue(2));// 2 = abajo
+            left = worldInfo.NextCell(agentPosition, worldInfo.AllowedMovements.FromIntValue(3));
+            rigth = worldInfo.NextCell(agentPosition, worldInfo.AllowedMovements.FromIntValue(1));
+
+            nWall = !up.Walkable;
+            sWall = !down.Walkable;
+            eWall = !rigth.Walkable;
+            wWall = !left.Walkable;
+
+            //direccion enemigo
+            nEnemy = otherPosition.y > agentPosition.y; // Enemigo está arriba si su Y es mayor, si false abajo
+            //_sEnemy = otherPosition.y < agentPosition.y; // Enemigo está al sur si su Y es menor
+            eEnemy = otherPosition.x > agentPosition.x; // Enemigo está a la derecha si su X es mayor, si false izquierda
+            //_wEnemy = otherPosition.x < agentPosition.x; // Enemigo está al oeste si su X es menor
+
+            idState = GenerateId();
+        }
+
+        public State() { }
+        public State(bool nWall, bool sWall, bool eWall, bool wWall, bool nEnemy, bool eEnemy, bool enemyNear)
+        {
+            this.nWall = nWall;
+            this.sWall = sWall;
+            this.eWall = eWall;
+            this.wWall = wWall;
+            this.nEnemy = nEnemy;
+            this.eEnemy = eEnemy;
+            this.enemyNear = enemyNear;
+
+
+        }
+
+        private string GenerateId()
+        {
+
+            //return Guid.NewGuid().ToString();
+            return $"{(nWall ? 1 : 0)}" +
+                   $"{(sWall ? 1 : 0)}" +
+                   $"{(eWall ? 1 : 0)}" +
+                   $"{(wWall ? 1 : 0)}" +
+                   $"{(nEnemy ? 1 : 0)}" +
+                   $"{(eEnemy ? 1 : 0)}" +
+                   $"{(enemyNear ? 1 : 0)}";
+        }
+
+    }
+}
+
+   
+    
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using UnityEditor;
+using UnityEngine;
+using static UnityEngine.Rendering.DebugUI;
+
+
+namespace GrupoB
+{
+    public class QTable : MonoBehaviour
+    {
+        public int actions;//numero de columnas (una por accion), filas son los estados
+        public Dictionary<string, float[]> qTable;
+        //(mirar hacer un id de state en vez de poner todo el state)*******************
+        public QTable()
+        {
+            actions = 4;
+            qTable= new Dictionary<string, float[]>();
+
+        }
+
+        public void Save()
+        {
+            string filePath = @"Assets/Scripts/GrupoB/TablaQ.csv";
+
+            /*// Obtener el directorio del archivo
+            string directory = Path.GetDirectoryName(filePath);
+
+            // Verificar si el directorio existe
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory); // Crear el directorio si no existe
+            }*/
+
+            // Escribir el archivo
+            File.WriteAllLines(filePath, ConvertCsv(qTable));
+        }
+
+        public void Load()
+        {
+            try
+            {
+                string[] lines = File.ReadAllLines(@"Assets/Scripts/GrupoB/TablaQ.csv");
+
+                // Limpiar el diccionario actual
+                qTable.Clear();
+
+                // Iterar cada por cada linea
+                foreach (string line in lines)
+                {
+                    // Separar la linea 
+                    string[] parts = line.Split('|');
+
+                    //idState
+                    string idState = parts[0];
+
+                    // Las siguientes partes son los valores Q
+                    float[] qValues = new float[actions];
+                    for (int i = 0; i < actions; i++)
+                    {
+                        qValues[i] = float.Parse(parts[i + 1]);
+                    }
+
+                    // Agregar la clave y los valores al diccionario
+                    qTable[idState] = qValues;
+                }
+
+                Debug.Log($"Tabla Q cargada correctamente desde Assets/Scripts/GrupoB/TablaQ.csv");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error al cargar la tabla Q: {ex.Message}");
+            }
+        }
+
+        private IEnumerable<string> ConvertCsv(Dictionary<string, float[]> qTable)
+        {
+            List<string> lines = new List<string>();
+
+            // Iterar sobre cada entrada en la tabla Q
+            foreach (var entry in qTable)
+            {
+                //State state = entry.Key;
+                float[] qValues = entry.Value;
+
+                // Convertir el estado a una cadena CSV
+                /*string stateString = $"{state.nWall},{state.sWall},{state.eWall},{state.wWall}," +
+                                     $"{state.nEnemy},{state.eEnemy}," +
+                                     $"{state.enemyNear}";*/
+
+                string stateString =entry.Key;
+
+                // Convertir los valores Q a una cadena CSV
+                string qValuesString = string.Join("|", qValues);//cambio del separadaor para ver bien los valores de los numeros
+
+                // Combinar el estado y los valores Q en una línea
+                lines.Add($"{stateString}|{qValuesString}");
+            }
+
+            return lines;
+        }
+
+        public int GetAction(State state)
+        {
+            if (!qTable.ContainsKey(state.idState))//si el estado no esta en la tabla se inicializa a 0
+            {
+                qTable[state.idState] = new float[actions];
+            }
+
+            float[] qValues = qTable[state.idState];
+            float maxValue = qValues[0];
+            int action = 0;
+
+            for (int i = 1; i < qValues.Length;i++)//recorremos la lista de qValues de las acciones en busca de la mejor
+            {
+                if (qValues[i] > maxValue)
+                {
+                    maxValue = qValues[i];
+                    action = i;
+                }
+            }
+            Debug.Log("///////////////////Diccionario/////////////");
+            /*foreach(var value in qTable)
+            {
+                Debug.Log($"Clave: {value.Key}, Valor: {value.Value}");
+            }*/
+            return action;
+        }
+
+        public float GetQValue(State state, int action)
+        {
+            if (!qTable.ContainsKey(state.idState))//si el estado no esta en la tabla se inicializa a 0
+            {
+                qTable[state.idState] = new float[actions];
+            }
+
+            float[] qValues = qTable[state.idState];//cogemos valor de la accion del estado indicado
+            Debug.Log($"Obteniendo QValue para el estado {state.idState} y acción {action}. Total de acciones: {qValues.Length}");
+            return qValues[action];
+        }
+
+        public float GetMaxQValue(State state)
+        {
+            if (!qTable.ContainsKey(state.idState))//si el estado no esta en la tabla se inicializa a 0
+            {
+                qTable[state.idState] = new float[actions];
+            }
+            float[] qValues = qTable[state.idState];
+            float maxValue = qValues[0];
+
+            for (int i = 1; i < qValues.Length; i++)//recorremos la lista de qValues de las acciones en busca del mayor
+            {
+                if (qValues[i] > maxValue)
+                {
+                    maxValue = qValues[i];
+                   
+                }
+            }
+            return maxValue;
+        }
+
+        public void UpdateQValue(State state, int action, float newValue)
+        {
+            if (!qTable.ContainsKey(state.idState))//si el estado no esta en la tabla se inicializa a 0
+            {
+                qTable[state.idState] = new float[actions];
+            }
+            float[] qValues = qTable[state.idState];//actualizar valor de una accion del estado indicado
+            Debug.Log($"Actualizando QValue para el estado {state.idState}, acción {action}. Total de acciones: {qValues.Length}");
+            qValues[action] = newValue;
+            qTable[state.idState] = qValues;
+        }
+    }
+}
+
+using NavigationDJIA.Interfaces;
+using NavigationDJIA.World;
+using QMind;
+using QMind.Interfaces;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using Unity.VisualScripting;
+using UnityEngine;
+using UnityEngine.UIElements;
+using Random = UnityEngine.Random;
+
+namespace GrupoB
+{
+    public class QMindTrainer : IQMindTrainer
+    {
+        public int CurrentEpisode { get; private set; }
+        public int CurrentStep { get; private set; }
+        public CellInfo AgentPosition { get; private set; }
+        public CellInfo OtherPosition { get; private set; }
+        public float Return { get; private set; }
+        public float ReturnAveraged { get; private set; }
+        public event EventHandler OnEpisodeStarted;
+        public event EventHandler OnEpisodeFinished;
+
+        private QMindTrainerParams _qMindTrainerParams;
+        private WorldInfo _worldInfo;
+        private INavigationAlgorithm _navigationAlgorithm;
+
+        private QTable _qTable;
+        private int _episodeCount = 0;
+        private int _stepCount = 0;
+        private float totalReward = 0;
+
+        private bool terminal_state;
+
+        public float epsilon;
+        public float alpha;
+        public float gamma;
+
+
+        public void Initialize(QMindTrainerParams qMindTrainerParams, WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
+        {
+            // Inicialización como antes
+            _worldInfo = worldInfo;
+            Debug.Log(worldInfo.WorldSize.x + " " + worldInfo.WorldSize.y);
+            _qMindTrainerParams = qMindTrainerParams;
+            navigationAlgorithm.Initialize(_worldInfo);
+            _navigationAlgorithm = navigationAlgorithm;
+            _qTable = new QTable();
+
+            string filePath = @"Assets/Scripts/GrupoB/TablaQ.csv";
+            // Obtener el directorio del archivo
+            string directory = Path.GetDirectoryName(filePath);
+            // Verificar si el directorio existe
+            if (File.Exists(filePath))
+            {
+                Debug.Log("Archivo de tabla Q encontrado. Cargando...");
+                _qTable.Load();
+            }
+
+            Debug.Log("QMindTrainerDummy: initialized");
+            AgentPosition = worldInfo.RandomCell();
+            OtherPosition = worldInfo.RandomCell();
+            OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
+
+            epsilon = _qMindTrainerParams.epsilon;
+            alpha = _qMindTrainerParams.alpha;
+            gamma = _qMindTrainerParams.gamma;
+        }
+
+        public void DoStep(bool train)
+        {
+            if (terminal_state)
+            {
+                ReturnAveraged = (float)(ReturnAveraged * 0.9 + Return * 0.1);
+                OnEpisodeFinished?.Invoke(this, EventArgs.Empty);
+                ResetEnvironment();
+            }
+
+            State state = new State(AgentPosition, OtherPosition, _worldInfo);
+            int action = selectAction(state);
+            (CellInfo newAgentPosition, CellInfo newOtherPosition) = UpdateEnvironment(action);
+            State nextState = new State(newAgentPosition, newOtherPosition, _worldInfo);
+            float reward = CalculateReward(newAgentPosition, newOtherPosition);
+            totalReward += reward;
+            Return = Mathf.Round(totalReward * 10) / 10;
+            UpdateQtable(state, action, reward, nextState);
+
+            AgentPosition = newAgentPosition;
+            OtherPosition = newOtherPosition;
+
+            _stepCount++;
+            CurrentStep = _stepCount;
+        }
+
+        private void ResetEnvironment()
+        {
+            //reiniciar el entorno
+            AgentPosition = _worldInfo.RandomCell();
+            OtherPosition = _worldInfo.RandomCell();
+            terminal_state = false;
+            _episodeCount++;
+            CurrentEpisode = _episodeCount;
+            _stepCount = 0;
+            CurrentStep = _stepCount;
+
+            if (_episodeCount % _qMindTrainerParams.episodesBetweenSaves == 0)
+            {
+                _qTable.Save();
+            }
+
+            OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
+        }
+
+        private int selectAction(State state)
+        {
+            //seleccionar accion de forma aleatoria (epsilon) o la que mayor valor tenga en la tabla
+            float random = Random.value;
+            int action;
+            if (random <= epsilon)
+            {
+                //Accion aleatoria
+                action = Random.Range(0, _qTable.actions);
+                return action;
+            }
+            else
+            {
+                //Accion de mayor valor Q
+                action = _qTable.GetAction(state);
+                return action;
+            }
+        }
+
+        private (CellInfo, CellInfo) UpdateEnvironment(int action)
+        {
+            //mov Agente (nueva poscion del agente usando la accion)
+            CellInfo newAgentPos = _worldInfo.NextCell(AgentPosition, _worldInfo.AllowedMovements.FromIntValue(action));
+            //mov Enemigo (nueva posicion del enemigo usando el algoritmo A*)
+            CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
+            CellInfo newOtherPos = OtherPosition;
+            try
+            {
+                if (newOtherPath[0] != null)//a veces daba error por null
+                {
+                    newOtherPos = newOtherPath[0];
+                }
+            }
+            catch (Exception e) { }
+
+            return (newAgentPos, newOtherPos);
+        }
+
+        private void UpdateQtable(State state, int action, float reward, State nextState)
+        {
+            //actualizar los valores de la tabla con la ecuacion de la regla de aprendizaje
+            float actualQValue = _qTable.GetQValue(state, action);
+            float bestNextQValue = _qTable.GetMaxQValue(nextState);
+            float newQValue = (1 - alpha) * actualQValue + alpha * (reward + gamma * bestNextQValue);
+            _qTable.UpdateQValue(state, action, newQValue);
+            // Depuración: Ver cómo se actualiza el valor de Q
+            /*Debug.Log($"Estado: {state.idState}, Acción: {action}, Q actual: {actualQValue}, " +
+                      $"Recompensa: {reward}, Q siguiente: {bestNextQValue}, Nuevo Q: {newQValue}");*/
+        }
+
+        private float CalculateReward(CellInfo agentPosition, CellInfo otherPosition)
+        {
+            //devolver la recompensa segun el estado nuevo
+            float actualDistance = AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan);
+            float newDistance = agentPosition.Distance(otherPosition, CellInfo.DistanceType.Manhattan);
+
+
+            bool near = newDistance <= 2; //si esta al lado del enemigo
+            float reward = 0;
+
+            //Si no caminable, o nos captura -> penalización y terminal state
+            if (!agentPosition.Walkable)
+            {
+                terminal_state = true;
+                return -1000;
+            }
+
+            if (agentPosition.x == otherPosition.x && agentPosition.y == otherPosition.y)
+            {
+                terminal_state = true;
+                return -100;
+            }
+
+
+            //Debug.Log("nueva distancia " + newDistance + " actual distancia " + actualDistance);
+
+            if ((agentPosition.x == 0 && agentPosition.y == 19) || (agentPosition.x == 0 && agentPosition.y == 0) || (agentPosition.x == 19 && agentPosition.y == 0) || (agentPosition.x == 19 && agentPosition.y == 19))
+            {
+                reward -= 1000;
+            }
+            //si nos alejamos -> recompensa
+            if (newDistance > actualDistance)
+            {
+                reward += 100;
+            }
+            else //si nos acercamos -> penalización
+            {
+                if (near) //si estamos al lado, más penalización
+                {
+                    reward -= 100;
+                }
+                reward -= 10;      
+            }
+
+
+
+
+            return reward;
+        }
+
+
+    }
+}
+
+
+using NavigationDJIA.World;
+using QMind.Interfaces;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace GrupoB
+{
+    public class QMindTester : IQMind
+    {
+        private WorldInfo _worldInfo;
+        private QTable _qTable;
+        private State currentState;
+        public void Initialize(WorldInfo worldInfo)
+        {
+            _worldInfo= worldInfo;
+            _qTable = new QTable();
+
+            _qTable.Load();
+        }
+
+        public CellInfo GetNextStep(CellInfo currentPosition, CellInfo otherPosition)
+        {
+            //Debug.Log("QMindTester: GetNextStep");
+            //estado en el que estamos
+            currentState = new State(currentPosition, otherPosition, _worldInfo);
+            //accion a hacer
+            int action = _qTable.GetAction(currentState);
+            //siguiente posicion
+            CellInfo newAgentPos = _worldInfo.NextCell(currentPosition, _worldInfo.AllowedMovements.FromIntValue(action));
+            
+            return newAgentPos;
+        }
+    }
+}
+
