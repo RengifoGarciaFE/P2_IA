@@ -7,9 +7,9 @@ namespace GrupoB
 {
     public class QMindTester : IQMind
     {
-        private WorldInfo _worldInfo;
-        private QTable _qTable;
-        private State currentState;
+        private WorldInfo _worldInfo; //ref al entorno
+        private QTable _qTable; //nuestra tablaQ 
+        private State currentState; //estado actual del agente
 
         public void Initialize(WorldInfo worldInfo)
         {
@@ -21,6 +21,7 @@ namespace GrupoB
             Debug.Log("[QMindTester] Tabla Q cargada.");
         }
 
+        //Este métdo recibirá la posición del agente y la del enemigo
         public CellInfo GetNextStep(CellInfo currentPosition, CellInfo otherPosition)
         {
             // Crear el estado actual
@@ -32,7 +33,7 @@ namespace GrupoB
             // Calcular la nueva posición resultante de aplicar la acción
             CellInfo newAgentPos = _worldInfo.NextCell(currentPosition, _worldInfo.AllowedMovements.FromIntValue(action));
 
-            return newAgentPos;
+            return newAgentPos; //nueva pos donde debería ir el agente en ese paso
         }
     }
 }
