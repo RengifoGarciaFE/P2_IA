@@ -134,10 +134,18 @@ namespace GrupoB
         private (CellInfo, CellInfo) UpdateEnvironment(int action)
         {
             CellInfo newAgentPos = _worldInfo.NextCell(AgentPosition, _worldInfo.AllowedMovements.FromIntValue(action));
+
             CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
-            CellInfo newOtherPos = (newOtherPath.Length > 0 && newOtherPath[0] != null) ? newOtherPath[0] : OtherPosition;
-            return (newAgentPos, newOtherPos);
+
+            if (newOtherPath == null || newOtherPath.Length == 0 || newOtherPath[0] == null)
+            {
+                Debug.LogWarning("[QMindTrainer] El enemigo no puede encontrar camino. Se mantiene en su posición.");
+                return (newAgentPos, OtherPosition);
+            }
+
+            return (newAgentPos, newOtherPath[0]);
         }
+
 
         private void UpdateQtable(State state, int action, float reward, State nextState)
         {//recibe estado actual, acción que se tomó desde el estado, recompensa recibida y estado siguiente al que se llega
