@@ -169,7 +169,7 @@ namespace GrupoB
             float newDistance = newAgentPos.Distance(newEnemyPos, CellInfo.DistanceType.Manhattan);
 
             float reward = (newDistance > oldDistance) ? 10f : -10f;
-            reward -= 1f;
+            //reward -= 1f;
 
             return reward;
         }
