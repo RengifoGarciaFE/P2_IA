@@ -1,4 +1,4 @@
-using NavigationDJIA.Interfaces;
+ï»¿using NavigationDJIA.Interfaces;
 using NavigationDJIA.World;
 using QMind;
 using QMind.Interfaces;
@@ -33,7 +33,14 @@ namespace GrupoB
 
         private bool terminal_state;
 
-        public float epsilon; //probab de explorar
+        [Range(0f, 1f)]
+        public float epsilon = 0.9f;
+        private float epsilonInicial;
+
+        [Range(0f, 1f)]
+        public float minEpsilon = 0.1f;
+        public int episodes = 5000;
+
         public float alpha; //tasa de aprendizaje
         public float gamma; //factor de descuento
 
@@ -45,23 +52,26 @@ namespace GrupoB
             _navigationAlgorithm.Initialize(_worldInfo);
             _qTable = new QTable();
 
-            // Cargar tabla solo si existe
+            // Cargar tabla si existe
             string filePath = @"Assets/Scripts/GrupoB/TablaQ.csv";
             if (File.Exists(filePath))
             {
                 Debug.Log("Archivo de tabla Q encontrado. Cargando...");
-                _qTable.Load(); //si existe una tabla Q la carga
+                _qTable.Load();
             }
-            
-            //colocar al agente y enemigo en posiciones aleatorias del mundo
-            AgentPosition = worldInfo.RandomCell(); 
-            OtherPosition = worldInfo.RandomCell();
-            OnEpisodeStarted?.Invoke(this, EventArgs.Empty); //lanza evento de inicio
 
+            // Posiciones iniciales
+            AgentPosition = worldInfo.RandomCell();
+            OtherPosition = worldInfo.RandomCell();
+            OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
+
+            // ParÃ¡metros
             epsilon = _qMindTrainerParams.epsilon;
+            epsilonInicial = epsilon; // se guarda valor fijo inicial
             alpha = _qMindTrainerParams.alpha;
             gamma = _qMindTrainerParams.gamma;
         }
+
 
         public void DoStep(bool train) //bucle de entrenamiento (importante) / train solo para actualizar tabla o no 
         {
@@ -73,9 +83,9 @@ namespace GrupoB
             }
 
             State state = new State(AgentPosition, OtherPosition, _worldInfo); //estado actual del entorno
-            int action = selectAction(state); //decide que acción tomar
-            (CellInfo newAgentPos, CellInfo newEnemyPos) = UpdateEnvironment(action); //aplicar acción elegida
-            State nextState = new State(newAgentPos, newEnemyPos, _worldInfo); //siguiente estado después de mover a ambos
+            int action = selectAction(state); //decide que acciÃ³n tomar
+            (CellInfo newAgentPos, CellInfo newEnemyPos) = UpdateEnvironment(action); //aplicar acciÃ³n elegida
+            State nextState = new State(newAgentPos, newEnemyPos, _worldInfo); //siguiente estado despuÃ©s de mover a ambos
             float reward = CalculateReward(newAgentPos, newEnemyPos); //calcula la rescompensa obtenida por este paso
 
             totalReward += reward;
@@ -96,39 +106,41 @@ namespace GrupoB
 
         private void ResetEnvironment()
         {
-            //colocar agente  y enemigo en celdas aleatorias que sean transitables y que el enem esté al menos a 3 celdas del agente
-            do { AgentPosition = _worldInfo.RandomCell(); } while (!AgentPosition.Walkable); 
-            do { OtherPosition = _worldInfo.RandomCell(); } while (!OtherPosition.Walkable || AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan) < 3);
+            // Colocar agente y enemigo en celdas transitables alejadas
+            do { AgentPosition = _worldInfo.RandomCell(); } while (!AgentPosition.Walkable);
+            do { OtherPosition = _worldInfo.RandomCell(); }
+            while (!OtherPosition.Walkable || AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan) < 3);
 
             terminal_state = false;
             _episodeCount++;
             CurrentEpisode = _episodeCount;
-            //reinicia contadores
             _stepCount = 0;
             CurrentStep = 0;
             totalReward = 0;
 
+            // Guardar tabla periÃ³dicamente
             if (_episodeCount % _qMindTrainerParams.episodesBetweenSaves == 0 || _episodeCount == _qMindTrainerParams.episodes)
-            { //cadaepisodeBetweenSaves o al llegar al ultimo episodio se guarda la tabla
+            {
                 _qTable.Save();
                 Debug.Log($"[Ep {_episodeCount}] Tabla Q guardada.");
             }
 
-            if (epsilon > 0.1f)
+            // Decaimiento corregido de epsilon desde episodio 501
+            if (_episodeCount > 500)
             {
-                epsilon *= 0.999f; //con el tiempo explorará menos cuanto más ato
-                                   //más probabilidad de elegir una acción aleatoria 
-                epsilon = Mathf.Max(epsilon, 0.1f); //para que el epsilon no baje del 0.1
+                int decayEpisodes = episodes - 500;
+                float decayRate = (epsilonInicial - minEpsilon) / decayEpisodes;
+                epsilon = Mathf.Max(minEpsilon, epsilon - decayRate);
             }
 
             OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
         }
 
-        private int selectAction(State state) //genera un nº (0-1) si es menor o igual que epsilon 
+        private int selectAction(State state) //genera un nÂº (0-1) si es menor o igual que epsilon 
         {
             return (Random.value <= epsilon)
-                ? Random.Range(0, _qTable.actions) //elegira una acción aleatoria (explorará)
-                : _qTable.GetAction(state); // sino elegirá la mehor acción aprendida (explotación)
+                ? Random.Range(0, _qTable.actions) //elegira una acciÃ³n aleatoria (explorarÃ¡)
+                : _qTable.GetAction(state); // sino elegirÃ¡ la mehor acciÃ³n aprendida (explotaciÃ³n)
         }
 
         private (CellInfo, CellInfo) UpdateEnvironment(int action)
@@ -139,16 +151,15 @@ namespace GrupoB
 
             if (newOtherPath == null || newOtherPath.Length == 0 || newOtherPath[0] == null)
             {
-                Debug.LogWarning("[QMindTrainer] El enemigo no puede encontrar camino. Se mantiene en su posición.");
+                Debug.LogWarning($"[Ep {CurrentEpisode}] SIN CAMINO entre enemigo y agente. Enemigo se queda quieto.");
                 return (newAgentPos, OtherPosition);
             }
 
             return (newAgentPos, newOtherPath[0]);
         }
 
-
         private void UpdateQtable(State state, int action, float reward, State nextState)
-        {//recibe estado actual, acción que se tomó desde el estado, recompensa recibida y estado siguiente al que se llega
+        {//recibe estado actual, acciÃ³n que se tomÃ³ desde el estado, recompensa recibida y estado siguiente al que se llega
             float actualQ = _qTable.GetQValue(state, action);
             float maxNextQ = _qTable.GetMaxQValue(nextState);
 
@@ -159,24 +170,34 @@ namespace GrupoB
 
         private float CalculateReward(CellInfo newAgentPos, CellInfo newEnemyPos)
         {
+            // Si se mete en un muro o es capturado â†’ final inmediato
             if (!newAgentPos.Walkable || (newAgentPos.x == newEnemyPos.x && newAgentPos.y == newEnemyPos.y))
             {
                 terminal_state = true;
                 return -1000f;
             }
 
+            // Calcula si el agente se aleja o acerca
             float oldDistance = AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan);
             float newDistance = newAgentPos.Distance(newEnemyPos, CellInfo.DistanceType.Manhattan);
 
-            float reward = (newDistance > oldDistance) ? 10f : -10f;
-            //reward -= 1f;
+            float reward = 0f;
+
+            if (newDistance > oldDistance)
+                reward += 10f; // Se aleja â†’ positivo
+            else if (newDistance < oldDistance)
+                reward -= 10f; // Se acerca â†’ negativo
+
+            // NO SE APLICA penalizaciÃ³n por cada paso
+            //reward -= 1f; 
 
             return reward;
         }
 
+
         private void Update()
         {
-            // Entrenamiento rápido sin depender de "train"
+            // Entrenamiento rÃ¡pido sin depender de "train"
             if (_qMindTrainerParams != null && Application.isPlaying)
             {
                 int stepsPerFrame = 100;
