@@ -1,4 +1,4 @@
-using NavigationDJIA.World;
+ï»¿using NavigationDJIA.World;
 using QMind.Interfaces;
 using System.Collections.Generic;
 using UnityEngine;
@@ -21,19 +21,41 @@ namespace GrupoB
             Debug.Log("[QMindTester] Tabla Q cargada.");
         }
 
-        //Este métdo recibirá la posición del agente y la del enemigo
+        //Este mÃ©tdo recibirÃ¡ la posiciÃ³n del agente y la del enemigo
         public CellInfo GetNextStep(CellInfo currentPosition, CellInfo otherPosition)
         {
             // Crear el estado actual
             currentState = new State(currentPosition, otherPosition, _worldInfo);
 
-            // Obtener la mejor acción según la tabla Q aprendida
-            int action = _qTable.GetAction(currentState);
+            // Obtener los Q-values para todas las acciones posibles
+            float[] qValues = _qTable.qTable.ContainsKey(currentState.idState)
+                ? _qTable.qTable[currentState.idState]
+                : new float[_qTable.actions];
 
-            // Calcular la nueva posición resultante de aplicar la acción
-            CellInfo newAgentPos = _worldInfo.NextCell(currentPosition, _worldInfo.AllowedMovements.FromIntValue(action));
+            int bestValidAction = -1;
+            float bestQ = float.NegativeInfinity;
 
-            return newAgentPos; //nueva pos donde debería ir el agente en ese paso
+            // Buscar la mejor acciÃ³n vÃ¡lida (que no vaya a una celda bloqueada)
+            for (int i = 0; i < qValues.Length; i++)
+            {
+                CellInfo next = _worldInfo.NextCell(currentPosition, _worldInfo.AllowedMovements.FromIntValue(i));
+                if (next.Walkable && qValues[i] > bestQ)
+                {
+                    bestQ = qValues[i];
+                    bestValidAction = i;
+                }
+            }
+
+            if (bestValidAction != -1)
+            {
+                return _worldInfo.NextCell(currentPosition, _worldInfo.AllowedMovements.FromIntValue(bestValidAction));
+            }
+            else
+            {
+                Debug.LogWarning($"[QMindTester] Ninguna acciÃ³n vÃ¡lida desde {currentPosition}. Se queda quieto.");
+                return currentPosition;
+            }
         }
+
     }
 }

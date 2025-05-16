@@ -1,4 +1,4 @@
-using NavigationDJIA.World; 
+using NavigationDJIA.World;
 using UnityEngine;
 
 namespace GrupoB
@@ -6,39 +6,49 @@ namespace GrupoB
     public class State
     {
         // Información entorno
-        public bool nWall, sWall, eWall, wWall;     // Hay muros alrededor?
-        public bool enemyNear;                      // Está el enemigo cerca?
-        public string enemyDirection;               // Dirección cardinal hacia el enemigo (N, S, E, W, NE, etc.)
-        public string agentZone;                    // Zona del mapa 
+        public bool nWall, sWall, eWall, wWall;     // Muros adyacentes
+        public bool enemyNear;                      // ¿Enemigo cerca?
+        public string enemyDirection;               // Dirección cardinal hacia enemigo
+        public string agentZone;                    // Cuadrante del mapa
+        public int freePaths;                       // Caminos abiertos desde la celda actual
+        public bool isEdgeZone;                     // ¿Está cerca del borde?
+        public string idState;                      // Identificador único del estado
 
-        public string idState;                      // Identificador del estado
+        private const float nearThreshold = 3.0f;
 
-        private const float nearThreshold = 3.0f;   // Distancia para considerar que el enemigo está cerca
-
-        //-->Constructor, creará un nuevo estado dado la pos del agente, la del enemigo y la info del entorno
         public State(CellInfo agentPos, CellInfo enemyPos, WorldInfo world)
         {
-            // Muros (usamos nextcell para ver cual es la celda adyacente en esa dirección)
+            // Muros
             nWall = !world.NextCell(agentPos, world.AllowedMovements.FromIntValue(0)).Walkable;
             eWall = !world.NextCell(agentPos, world.AllowedMovements.FromIntValue(1)).Walkable;
             sWall = !world.NextCell(agentPos, world.AllowedMovements.FromIntValue(2)).Walkable;
             wWall = !world.NextCell(agentPos, world.AllowedMovements.FromIntValue(3)).Walkable;
 
-            // Cercanía al enemigo (calculamos distancia manhattan entre agente y enem si es <=3 esq ue está cerca)
+            // Cercanía al enemigo
             float distance = agentPos.Distance(enemyPos, CellInfo.DistanceType.Manhattan);
             enemyNear = distance <= nearThreshold;
 
-            // Dirección del enemigo relativa al agente
+            // Dirección relativa al enemigo
             enemyDirection = CalculateEnemyDirection(agentPos, enemyPos);
 
-            // Zona del mapa (dividimos en 4 cuadrantes para determnar en cual está el agente)
+            // Zona del mapa (cuadrante)
             agentZone = CalculateMapZone(agentPos, world);
 
-            // ID de estado codificado
+            // Caminos libres
+            freePaths = 0;
+            if (!nWall) freePaths++;
+            if (!sWall) freePaths++;
+            if (!eWall) freePaths++;
+            if (!wWall) freePaths++;
+
+            // ¿Está en una zona de borde?
+            isEdgeZone = agentPos.x == 0 || agentPos.x == world.WorldSize.x - 1 ||
+                         agentPos.y == 0 || agentPos.y == world.WorldSize.y - 1;
+
+            // Codificar el estado
             idState = GenerateId();
         }
 
-        //--> Calcula la dirección cardinal desde el agente hacia el enemigo
         private string CalculateEnemyDirection(CellInfo agent, CellInfo enemy)
         {
             int dx = enemy.x - agent.x;
@@ -66,10 +76,10 @@ namespace GrupoB
             return "Q4"; // Bottom-right
         }
 
-        private string GenerateId() //convertir info del estado en una cadena
+        private string GenerateId()
         {
             return $"{(nWall ? 1 : 0)}{(sWall ? 1 : 0)}{(eWall ? 1 : 0)}{(wWall ? 1 : 0)}" +
-                   $"_{(enemyNear ? 1 : 0)}_{enemyDirection}_{agentZone}";
+                   $"_{(enemyNear ? 1 : 0)}_{enemyDirection}_{agentZone}_{freePaths}_{(isEdgeZone ? 1 : 0)}";
         }
     }
 }
