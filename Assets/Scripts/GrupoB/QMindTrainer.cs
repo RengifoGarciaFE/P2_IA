@@ -10,8 +10,10 @@ using Random = UnityEngine.Random;
 
 namespace GrupoB
 {
-    public class QMindTrainer : IQMindTrainer
+    public class QMindTrainer : MonoBehaviour, IQMindTrainer
     {
+        public QMindTrainerParams trainerParams;
+
         public int CurrentEpisode { get; private set; }
         public int CurrentStep { get; private set; }
         public CellInfo AgentPosition { get; private set; }
@@ -21,7 +23,6 @@ namespace GrupoB
         public event EventHandler OnEpisodeStarted;
         public event EventHandler OnEpisodeFinished;
 
-        private QMindTrainerParams _qMindTrainerParams;
         private WorldInfo _worldInfo;
         private INavigationAlgorithm _navigationAlgorithm;
 
@@ -31,10 +32,6 @@ namespace GrupoB
         private float totalReward = 0f;
         private bool terminal_state;
 
-        public float epsilon = 0.9f;
-        public float alpha = 0.2f;
-        public float gamma = 0.99f;
-
         private float cumulativeReturnSum = 0f;
         private Queue<CellInfo> lastPositions = new Queue<CellInfo>();
         private int stuckCheckWindow = 10;
@@ -43,7 +40,7 @@ namespace GrupoB
         public void Initialize(QMindTrainerParams qMindTrainerParams, WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
         {
             _worldInfo = worldInfo;
-            _qMindTrainerParams = qMindTrainerParams;
+            trainerParams = qMindTrainerParams;
 
             navigationAlgorithm.Initialize(_worldInfo);
             _navigationAlgorithm = navigationAlgorithm;
@@ -57,16 +54,15 @@ namespace GrupoB
 
             ResetEnvironment();
             OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
-
-            epsilon = _qMindTrainerParams.epsilon;
-            alpha = _qMindTrainerParams.alpha;
-            gamma = _qMindTrainerParams.gamma;
         }
 
         public void DoStep(bool train)
         {
-            if (terminal_state)
+            if (terminal_state || _stepCount >= trainerParams.maxSteps)
             {
+                if (_stepCount >= trainerParams.maxSteps)
+                    Debug.Log($"[QMindTrainer] Máximo de {trainerParams.maxSteps} pasos alcanzado, terminando episodio.");
+
                 FinalizeEpisode();
                 return;
             }
@@ -191,13 +187,10 @@ namespace GrupoB
             Return = 0;
             lastPositions.Clear();
 
-            if (_episodeCount % _qMindTrainerParams.episodesBetweenSaves == 0 || _episodeCount == _qMindTrainerParams.episodes)
-                _qTable.Save();
-
-            if (epsilon > 0.1f)
+            if (_episodeCount % trainerParams.episodesBetweenSaves == 0 || _episodeCount == trainerParams.episodes)
             {
-                epsilon *= 0.999f;
-                epsilon = Mathf.Max(epsilon, 0.1f);
+                _qTable.Save();
+                Debug.Log($"[QMindTrainer] Tabla Q guardada en episodio {_episodeCount}.");
             }
 
             OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
@@ -205,7 +198,7 @@ namespace GrupoB
 
         private int selectAction(State state)
         {
-            if (Random.value <= epsilon)
+            if (Random.value <= trainerParams.epsilon)
             {
                 List<int> validActions = new List<int>();
                 for (int a = 0; a < _qTable.actions; a++)
@@ -253,18 +246,16 @@ namespace GrupoB
         {
             float actualQ = _qTable.GetQValue(state, action);
             float maxNextQ = _qTable.GetMaxQValue(nextState);
-            float newQ = (1 - alpha) * actualQ + alpha * (reward + gamma * maxNextQ);
+            float newQ = (1 - trainerParams.alpha) * actualQ + trainerParams.alpha * (reward + trainerParams.gamma * maxNextQ);
             _qTable.UpdateQValue(state, action, newQ);
         }
 
         private float CalculateReward(CellInfo newAgentPos, CellInfo newEnemyPos, bool terminal)
         {
-            if (terminal)
-                return -100f;
-
             float oldDistance = AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan);
             float newDistance = newAgentPos.Distance(newEnemyPos, CellInfo.DistanceType.Manhattan);
 
+            if (terminal) return -1000f;
             return (newDistance >= oldDistance) ? 10f : -30f;
         }
     }
