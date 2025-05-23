@@ -265,7 +265,7 @@ namespace GrupoB
             float oldDistance = AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan);
             float newDistance = newAgentPos.Distance(newEnemyPos, CellInfo.DistanceType.Manhattan);
 
-            return (newDistance >= oldDistance) ? 10f : -20f;
+            return (newDistance >= oldDistance) ? 10f : -30f;
         }
     }
 }

@@ -6963,7 +6963,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   agent: {fileID: 1405488106}
   oponent: {fileID: 921274857}
-  speed: 10
+  speed: 100
   qMindClass: GrupoB.QMindTester, Assembly-CSharp, Version=0.0.0.0, Culture=neutral,
     PublicKeyToken=null
 --- !u!4 &403569453
@@ -7129,7 +7129,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &414741301
 Transform:
   m_ObjectHideFlags: 0
@@ -9179,7 +9179,7 @@ Transform:
   m_GameObject: {fileID: 532564558}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 18.89, y: 0, z: 0.48}
+  m_LocalPosition: {x: 19.19, y: 0, z: 0.48}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -18225,7 +18225,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1172996927
 MonoBehaviour:
   m_ObjectHideFlags: 0
