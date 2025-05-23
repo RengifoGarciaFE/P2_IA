@@ -36,11 +36,9 @@ namespace GrupoB
         public float gamma = 0.99f;
 
         private float cumulativeReturnSum = 0f;
-
-        // Para detectar si el agente está atascado
         private Queue<CellInfo> lastPositions = new Queue<CellInfo>();
-        private int stuckCheckWindow = 10; // cantidad de pasos para revisar repetición
-        private int maxSamePositionCount = 8; // umbral para considerar atascado
+        private int stuckCheckWindow = 10;
+        private int maxSamePositionCount = 8;
 
         public void Initialize(QMindTrainerParams qMindTrainerParams, WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
         {
@@ -69,23 +67,11 @@ namespace GrupoB
         {
             if (terminal_state)
             {
-                if (CurrentEpisode > 0)
-                {
-                    cumulativeReturnSum += totalReward;
-                    ReturnAveraged = cumulativeReturnSum / CurrentEpisode;
-                }
-                else
-                {
-                    ReturnAveraged = 0;
-                }
-
-                OnEpisodeFinished?.Invoke(this, EventArgs.Empty);
-                ResetEnvironment();
+                FinalizeEpisode();
                 return;
             }
 
             State state = new State(AgentPosition, OtherPosition, _worldInfo);
-            Debug.Log("Entrenando: " + state.idState);
             int action = selectAction(state);
 
             CellInfo oldAgentPos = AgentPosition;
@@ -93,13 +79,12 @@ namespace GrupoB
 
             (CellInfo newAgentPos, CellInfo newEnemyPos) = UpdateEnvironment(action);
 
-            // Check para captura o cruce
             bool captured = (newAgentPos.x == newEnemyPos.x && newAgentPos.y == newEnemyPos.y);
             bool crossed = (newAgentPos.x == oldEnemyPos.x && newAgentPos.y == oldEnemyPos.y) &&
                            (newEnemyPos.x == oldAgentPos.x && newEnemyPos.y == oldAgentPos.y);
 
             State nextState = new State(newAgentPos, newEnemyPos, _worldInfo);
-            float reward = CalculateReward(newAgentPos, newEnemyPos, nextState, captured || crossed);
+            float reward = CalculateReward(newAgentPos, newEnemyPos, captured || crossed);
 
             if (captured || crossed)
                 terminal_state = true;
@@ -113,12 +98,10 @@ namespace GrupoB
             AgentPosition = newAgentPos;
             OtherPosition = newEnemyPos;
 
-            // Añadir posición actual a cola para detectar atascos
             lastPositions.Enqueue(newAgentPos);
             if (lastPositions.Count > stuckCheckWindow)
                 lastPositions.Dequeue();
 
-            // Comprobar si atascado
             if (IsAgentStuck())
             {
                 terminal_state = true;
@@ -127,17 +110,7 @@ namespace GrupoB
 
             if (terminal_state)
             {
-                if (CurrentEpisode > 0)
-                {
-                    cumulativeReturnSum += totalReward;
-                    ReturnAveraged = cumulativeReturnSum / CurrentEpisode;
-                }
-                else
-                {
-                    ReturnAveraged = 0;
-                }
-                OnEpisodeFinished?.Invoke(this, EventArgs.Empty);
-                ResetEnvironment();
+                FinalizeEpisode();
                 return;
             }
 
@@ -145,24 +118,31 @@ namespace GrupoB
             CurrentStep = _stepCount;
         }
 
+        private void FinalizeEpisode()
+        {
+            if (CurrentEpisode > 0)
+                cumulativeReturnSum += totalReward;
+
+            ReturnAveraged = CurrentEpisode > 0 ? cumulativeReturnSum / CurrentEpisode : 0;
+            OnEpisodeFinished?.Invoke(this, EventArgs.Empty);
+            ResetEnvironment();
+        }
+
         private bool IsAgentStuck()
         {
             if (lastPositions.Count < stuckCheckWindow)
                 return false;
 
-            // Contar cuántas veces el agente estuvo en la misma celda en la ventana de revisión
             var positionsArray = lastPositions.ToArray();
             int maxRepeats = 0;
+
             foreach (var pos in positionsArray)
             {
                 int count = 0;
                 foreach (var p in positionsArray)
-                {
-                    if (p.x == pos.x && p.y == pos.y)
-                        count++;
-                }
-                if (count > maxRepeats)
-                    maxRepeats = count;
+                    if (p.x == pos.x && p.y == pos.y) count++;
+
+                maxRepeats = Math.Max(maxRepeats, count);
             }
 
             return maxRepeats >= maxSamePositionCount;
@@ -170,7 +150,6 @@ namespace GrupoB
 
         private void ResetEnvironment()
         {
-            // Intentar spawnear en posiciones con camino válido
             bool validSpawn = false;
             int maxAttempts = 100;
             int attempts = 0;
@@ -188,19 +167,14 @@ namespace GrupoB
 
                 var path = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
                 if (path != null && path.Length > 0 && path[0] != null)
-                {
                     validSpawn = true;
-                }
                 else
-                {
                     attempts++;
-                }
             }
 
             if (!validSpawn)
             {
                 Debug.Log("[QMindTrainer] El agente está aislado y no puede ser atrapado. Saltando episodio.");
-                // Incrementar episodio sin recompensa ni castigo
                 _episodeCount++;
                 CurrentEpisode = _episodeCount;
                 totalReward = 0;
@@ -213,7 +187,6 @@ namespace GrupoB
             _episodeCount++;
             CurrentEpisode = _episodeCount;
             _stepCount = 0;
-            CurrentStep = 0;
             totalReward = 0;
             Return = 0;
             lastPositions.Clear();
@@ -241,14 +214,16 @@ namespace GrupoB
                     if (nextCell.Walkable)
                         validActions.Add(a);
                 }
-                if (validActions.Count == 0) return 0;
-                return validActions[Random.Range(0, validActions.Count)];
+                return validActions.Count == 0 ? 0 : validActions[Random.Range(0, validActions.Count)];
             }
             else
             {
                 float bestQ = float.NegativeInfinity;
                 int bestAction = 0;
-                float[] qValues = _qTable.qTable.ContainsKey(state.idState) ? _qTable.qTable[state.idState] : new float[_qTable.actions];
+                float[] qValues = _qTable.qTable.ContainsKey(state.idState)
+                    ? _qTable.qTable[state.idState]
+                    : new float[_qTable.actions];
+
                 for (int a = 0; a < _qTable.actions; a++)
                 {
                     CellInfo nextCell = _worldInfo.NextCell(AgentPosition, _worldInfo.AllowedMovements.FromIntValue(a));
@@ -268,14 +243,8 @@ namespace GrupoB
             CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
             CellInfo newOtherPos = OtherPosition;
 
-            try
-            {
-                if (newOtherPath.Length > 0 && newOtherPath[0] != null)
-                {
-                    newOtherPos = newOtherPath[0];
-                }
-            }
-            catch (Exception) { }
+            if (newOtherPath.Length > 0 && newOtherPath[0] != null)
+                newOtherPos = newOtherPath[0];
 
             return (newAgentPos, newOtherPos);
         }
@@ -288,21 +257,15 @@ namespace GrupoB
             _qTable.UpdateQValue(state, action, newQ);
         }
 
-        private float CalculateReward(CellInfo newAgentPos, CellInfo newEnemyPos, State nextState, bool terminal)
+        private float CalculateReward(CellInfo newAgentPos, CellInfo newEnemyPos, bool terminal)
         {
             if (terminal)
-                return -100f; // castigo fuerte por captura o cruce
-
-            if (nextState.isCorner)
-                return -10f;
+                return -100f;
 
             float oldDistance = AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan);
             float newDistance = newAgentPos.Distance(newEnemyPos, CellInfo.DistanceType.Manhattan);
 
-            if (newDistance >= oldDistance)
-                return 10f;
-            else
-                return -60f;
+            return (newDistance >= oldDistance) ? 10f : -20f;
         }
     }
 }

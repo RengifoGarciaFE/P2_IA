@@ -6,19 +6,24 @@ namespace GrupoB
     {
         public int relativeX;  // -1, 0, 1
         public int relativeY;  // -1, 0, 1
-        public int freePaths;  // 0 a 4
-        public bool isCorner;  // true si está en una esquina del mapa
+        public bool northFree;
+        public bool southFree;
+        public bool eastFree;
+        public bool westFree;
+
         public string idState;
 
         public State(CellInfo agentPos, CellInfo enemyPos, WorldInfo world)
         {
             relativeX = GetRelativeDirection(enemyPos.x - agentPos.x);
             relativeY = GetRelativeDirection(enemyPos.y - agentPos.y);
-            freePaths = CountFreePaths(agentPos, world);
 
-            isCorner = IsCorner(agentPos, world);
+            northFree = IsDirectionFree(agentPos, world, 0); // N
+            eastFree = IsDirectionFree(agentPos, world, 1); // E
+            southFree = IsDirectionFree(agentPos, world, 2); // S
+            westFree = IsDirectionFree(agentPos, world, 3); // O
 
-            idState = $"{relativeX}_{relativeY}_{freePaths}_{(isCorner ? 1 : 0)}";
+            idState = $"{relativeX}_{relativeY}_{(northFree ? 1 : 0)}_{(southFree ? 1 : 0)}_{(eastFree ? 1 : 0)}_{(westFree ? 1 : 0)}";
         }
 
         private int GetRelativeDirection(int diff)
@@ -28,27 +33,10 @@ namespace GrupoB
             else return 0;
         }
 
-        private int CountFreePaths(CellInfo pos, WorldInfo world)
+        private bool IsDirectionFree(CellInfo pos, WorldInfo world, int dir)
         {
-            int count = 0;
-            for (int i = 0; i < 4; i++)
-            {
-                CellInfo next = world.NextCell(pos, world.AllowedMovements.FromIntValue(i));
-                if (next.Walkable)
-                    count++;
-            }
-            return count;
-        }
-
-        private bool IsCorner(CellInfo pos, WorldInfo world)
-        {
-            int maxX = world.WorldSize.x - 1;
-            int maxY = world.WorldSize.y - 1;
-            return
-                (pos.x == 0 && pos.y == 0) ||
-                (pos.x == 0 && pos.y == maxY) ||
-                (pos.x == maxX && pos.y == 0) ||
-                (pos.x == maxX && pos.y == maxY);
+            CellInfo next = world.NextCell(pos, world.AllowedMovements.FromIntValue(dir));
+            return next.Walkable;
         }
     }
 }
