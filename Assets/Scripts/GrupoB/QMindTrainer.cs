@@ -16,9 +16,8 @@ namespace GrupoB
         public int CurrentStep { get; private set; }
         public CellInfo AgentPosition { get; private set; }
         public CellInfo OtherPosition { get; private set; }
-        public float Return { get; private set; } //recompensa total
-        public float ReturnAveraged { get; private set; } //promedio
-        //para notificar cuand comienza o acaba un episodio
+        public float Return { get; private set; } = 0f;
+        public float ReturnAveraged { get; private set; } = 0f;
         public event EventHandler OnEpisodeStarted;
         public event EventHandler OnEpisodeFinished;
 
@@ -29,87 +28,186 @@ namespace GrupoB
         private QTable _qTable;
         private int _episodeCount = 0;
         private int _stepCount = 0;
-        private float totalReward = 0;
-
+        private float totalReward = 0f;
         private bool terminal_state;
 
-        [Range(0f, 1f)]
         public float epsilon = 0.9f;
-        private float epsilonInicial;
+        public float alpha = 0.2f;
+        public float gamma = 0.99f;
 
-        [Range(0f, 1f)]
-        public float minEpsilon = 0.1f;
-        public int episodes = 5000;
+        private float cumulativeReturnSum = 0f;
 
-        public float alpha; //tasa de aprendizaje
-        public float gamma; //factor de descuento
+        // Para detectar si el agente está atascado
+        private Queue<CellInfo> lastPositions = new Queue<CellInfo>();
+        private int stuckCheckWindow = 10; // cantidad de pasos para revisar repetición
+        private int maxSamePositionCount = 8; // umbral para considerar atascado
 
         public void Initialize(QMindTrainerParams qMindTrainerParams, WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
         {
             _worldInfo = worldInfo;
             _qMindTrainerParams = qMindTrainerParams;
+
+            navigationAlgorithm.Initialize(_worldInfo);
             _navigationAlgorithm = navigationAlgorithm;
             _navigationAlgorithm.Initialize(_worldInfo);
+
             _qTable = new QTable();
 
-            // Cargar tabla si existe
             string filePath = @"Assets/Scripts/GrupoB/TablaQ.csv";
             if (File.Exists(filePath))
-            {
-                Debug.Log("Archivo de tabla Q encontrado. Cargando...");
                 _qTable.Load();
-            }
 
-            // Posiciones iniciales
-            AgentPosition = worldInfo.RandomCell();
-            OtherPosition = worldInfo.RandomCell();
+            ResetEnvironment();
             OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
 
-            // Parámetros
             epsilon = _qMindTrainerParams.epsilon;
-            epsilonInicial = epsilon; // se guarda valor fijo inicial
             alpha = _qMindTrainerParams.alpha;
             gamma = _qMindTrainerParams.gamma;
         }
 
-
-        public void DoStep(bool train) //bucle de entrenamiento (importante) / train solo para actualizar tabla o no 
+        public void DoStep(bool train)
         {
-            if (terminal_state)//si el episodio anterior a terminado devuelve la media de recompensas lanza el evnto y resetea
+            if (terminal_state)
             {
-                ReturnAveraged = ReturnAveraged * 0.9f + Return * 0.1f;
+                if (CurrentEpisode > 0)
+                {
+                    cumulativeReturnSum += totalReward;
+                    ReturnAveraged = cumulativeReturnSum / CurrentEpisode;
+                }
+                else
+                {
+                    ReturnAveraged = 0;
+                }
+
                 OnEpisodeFinished?.Invoke(this, EventArgs.Empty);
                 ResetEnvironment();
+                return;
             }
 
-            State state = new State(AgentPosition, OtherPosition, _worldInfo); //estado actual del entorno
-            int action = selectAction(state); //decide que acción tomar
-            (CellInfo newAgentPos, CellInfo newEnemyPos) = UpdateEnvironment(action); //aplicar acción elegida
-            State nextState = new State(newAgentPos, newEnemyPos, _worldInfo); //siguiente estado después de mover a ambos
-            float reward = CalculateReward(newAgentPos, newEnemyPos); //calcula la rescompensa obtenida por este paso
+            State state = new State(AgentPosition, OtherPosition, _worldInfo);
+            Debug.Log("Entrenando: " + state.idState);
+            int action = selectAction(state);
+
+            CellInfo oldAgentPos = AgentPosition;
+            CellInfo oldEnemyPos = OtherPosition;
+
+            (CellInfo newAgentPos, CellInfo newEnemyPos) = UpdateEnvironment(action);
+
+            // Check para captura o cruce
+            bool captured = (newAgentPos.x == newEnemyPos.x && newAgentPos.y == newEnemyPos.y);
+            bool crossed = (newAgentPos.x == oldEnemyPos.x && newAgentPos.y == oldEnemyPos.y) &&
+                           (newEnemyPos.x == oldAgentPos.x && newEnemyPos.y == oldAgentPos.y);
+
+            State nextState = new State(newAgentPos, newEnemyPos, _worldInfo);
+            float reward = CalculateReward(newAgentPos, newEnemyPos, nextState, captured || crossed);
+
+            if (captured || crossed)
+                terminal_state = true;
 
             totalReward += reward;
             Return = Mathf.Round(totalReward * 10f) / 10f;
 
-            if (train) //si estamo entrenando no solo observando aplicaremos la formula de q-learning
-            {
+            if (train)
                 UpdateQtable(state, action, reward, nextState);
+
+            AgentPosition = newAgentPos;
+            OtherPosition = newEnemyPos;
+
+            // Añadir posición actual a cola para detectar atascos
+            lastPositions.Enqueue(newAgentPos);
+            if (lastPositions.Count > stuckCheckWindow)
+                lastPositions.Dequeue();
+
+            // Comprobar si atascado
+            if (IsAgentStuck())
+            {
+                terminal_state = true;
+                Debug.Log("[QMindTrainer] Agente atascado detectado, reiniciando episodio.");
             }
 
-            AgentPosition = newAgentPos; //actualizamos las posiciones para el siguiente paso
-            OtherPosition = newEnemyPos;
+            if (terminal_state)
+            {
+                if (CurrentEpisode > 0)
+                {
+                    cumulativeReturnSum += totalReward;
+                    ReturnAveraged = cumulativeReturnSum / CurrentEpisode;
+                }
+                else
+                {
+                    ReturnAveraged = 0;
+                }
+                OnEpisodeFinished?.Invoke(this, EventArgs.Empty);
+                ResetEnvironment();
+                return;
+            }
+
             _stepCount++;
             CurrentStep = _stepCount;
+        }
 
-            Debug.Log($"[Ep {CurrentEpisode}] Step {CurrentStep} | Action: {action} | R: {reward} | Epsilon: {Math.Round(epsilon, 3)}");
+        private bool IsAgentStuck()
+        {
+            if (lastPositions.Count < stuckCheckWindow)
+                return false;
+
+            // Contar cuántas veces el agente estuvo en la misma celda en la ventana de revisión
+            var positionsArray = lastPositions.ToArray();
+            int maxRepeats = 0;
+            foreach (var pos in positionsArray)
+            {
+                int count = 0;
+                foreach (var p in positionsArray)
+                {
+                    if (p.x == pos.x && p.y == pos.y)
+                        count++;
+                }
+                if (count > maxRepeats)
+                    maxRepeats = count;
+            }
+
+            return maxRepeats >= maxSamePositionCount;
         }
 
         private void ResetEnvironment()
         {
-            // Colocar agente y enemigo en celdas transitables alejadas
-            do { AgentPosition = _worldInfo.RandomCell(); } while (!AgentPosition.Walkable);
-            do { OtherPosition = _worldInfo.RandomCell(); }
-            while (!OtherPosition.Walkable || AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan) < 3);
+            // Intentar spawnear en posiciones con camino válido
+            bool validSpawn = false;
+            int maxAttempts = 100;
+            int attempts = 0;
+
+            while (!validSpawn && attempts < maxAttempts)
+            {
+                AgentPosition = _worldInfo.RandomCell();
+                OtherPosition = _worldInfo.RandomCell();
+
+                if (!AgentPosition.Walkable || !OtherPosition.Walkable)
+                {
+                    attempts++;
+                    continue;
+                }
+
+                var path = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
+                if (path != null && path.Length > 0 && path[0] != null)
+                {
+                    validSpawn = true;
+                }
+                else
+                {
+                    attempts++;
+                }
+            }
+
+            if (!validSpawn)
+            {
+                Debug.Log("[QMindTrainer] El agente está aislado y no puede ser atrapado. Saltando episodio.");
+                // Incrementar episodio sin recompensa ni castigo
+                _episodeCount++;
+                CurrentEpisode = _episodeCount;
+                totalReward = 0;
+                Return = 0;
+                OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
+                return;
+            }
 
             terminal_state = false;
             _episodeCount++;
@@ -117,117 +215,94 @@ namespace GrupoB
             _stepCount = 0;
             CurrentStep = 0;
             totalReward = 0;
+            Return = 0;
+            lastPositions.Clear();
 
-            // Guardar tabla periódicamente
             if (_episodeCount % _qMindTrainerParams.episodesBetweenSaves == 0 || _episodeCount == _qMindTrainerParams.episodes)
-            {
                 _qTable.Save();
-                Debug.Log($"[Ep {_episodeCount}] Tabla Q guardada.");
-            }
 
-            // Decaimiento corregido de epsilon desde episodio 501
-            if (_episodeCount > 500)
+            if (epsilon > 0.1f)
             {
-                int decayEpisodes = episodes - 500;
-                float decayRate = (epsilonInicial - minEpsilon) / decayEpisodes;
-                epsilon = Mathf.Max(minEpsilon, epsilon - decayRate);
+                epsilon *= 0.999f;
+                epsilon = Mathf.Max(epsilon, 0.1f);
             }
 
             OnEpisodeStarted?.Invoke(this, EventArgs.Empty);
         }
 
-        private int selectAction(State state) //genera un nº (0-1) si es menor o igual que epsilon 
+        private int selectAction(State state)
         {
-            return (Random.value <= epsilon)
-                ? Random.Range(0, _qTable.actions) //elegira una acción aleatoria (explorará)
-                : _qTable.GetAction(state); // sino elegirá la mehor acción aprendida (explotación)
+            if (Random.value <= epsilon)
+            {
+                List<int> validActions = new List<int>();
+                for (int a = 0; a < _qTable.actions; a++)
+                {
+                    CellInfo nextCell = _worldInfo.NextCell(AgentPosition, _worldInfo.AllowedMovements.FromIntValue(a));
+                    if (nextCell.Walkable)
+                        validActions.Add(a);
+                }
+                if (validActions.Count == 0) return 0;
+                return validActions[Random.Range(0, validActions.Count)];
+            }
+            else
+            {
+                float bestQ = float.NegativeInfinity;
+                int bestAction = 0;
+                float[] qValues = _qTable.qTable.ContainsKey(state.idState) ? _qTable.qTable[state.idState] : new float[_qTable.actions];
+                for (int a = 0; a < _qTable.actions; a++)
+                {
+                    CellInfo nextCell = _worldInfo.NextCell(AgentPosition, _worldInfo.AllowedMovements.FromIntValue(a));
+                    if (nextCell.Walkable && qValues[a] > bestQ)
+                    {
+                        bestQ = qValues[a];
+                        bestAction = a;
+                    }
+                }
+                return bestAction;
+            }
         }
 
         private (CellInfo, CellInfo) UpdateEnvironment(int action)
         {
             CellInfo newAgentPos = _worldInfo.NextCell(AgentPosition, _worldInfo.AllowedMovements.FromIntValue(action));
-
             CellInfo[] newOtherPath = _navigationAlgorithm.GetPath(OtherPosition, AgentPosition, 1);
+            CellInfo newOtherPos = OtherPosition;
 
-            if (newOtherPath == null || newOtherPath.Length == 0 || newOtherPath[0] == null)
+            try
             {
-                Debug.LogWarning($"[Ep {CurrentEpisode}] SIN CAMINO entre enemigo y agente. Enemigo se queda quieto.");
-                return (newAgentPos, OtherPosition);
+                if (newOtherPath.Length > 0 && newOtherPath[0] != null)
+                {
+                    newOtherPos = newOtherPath[0];
+                }
             }
+            catch (Exception) { }
 
-            return (newAgentPos, newOtherPath[0]);
+            return (newAgentPos, newOtherPos);
         }
 
         private void UpdateQtable(State state, int action, float reward, State nextState)
-        {//recibe estado actual, acción que se tomó desde el estado, recompensa recibida y estado siguiente al que se llega
+        {
             float actualQ = _qTable.GetQValue(state, action);
             float maxNextQ = _qTable.GetMaxQValue(nextState);
-
-            // Q(s,a) <-- (1 - ?)    *  Q(s,a) +   ?   * [ R     +  ?    * max Q(s',a')]
             float newQ = (1 - alpha) * actualQ + alpha * (reward + gamma * maxNextQ);
-            _qTable.UpdateQValue(state, action, newQ); //guardar nuevo valor
+            _qTable.UpdateQValue(state, action, newQ);
         }
 
-        private float CalculateReward(CellInfo newAgentPos, CellInfo newEnemyPos)
+        private float CalculateReward(CellInfo newAgentPos, CellInfo newEnemyPos, State nextState, bool terminal)
         {
-            // Si se mete en un muro o es capturado → final inmediato
-            if (!newAgentPos.Walkable || (newAgentPos.x == newEnemyPos.x && newAgentPos.y == newEnemyPos.y))
-            {
-                terminal_state = true;
-                return -1000f;
-            }
+            if (terminal)
+                return -100f; // castigo fuerte por captura o cruce
 
-            // Calcula si el agente se aleja o acerca
+            if (nextState.isCorner)
+                return -10f;
+
             float oldDistance = AgentPosition.Distance(OtherPosition, CellInfo.DistanceType.Manhattan);
             float newDistance = newAgentPos.Distance(newEnemyPos, CellInfo.DistanceType.Manhattan);
 
-            float reward = 0f;
-
-            if (newDistance > oldDistance)
-                reward += 10f; // Se aleja → positivo
-            else if (newDistance < oldDistance)
-                reward -= 10f; // Se acerca → negativo
-
-            // NO SE APLICA penalización por cada paso
-            //reward -= 1f; 
-
-            return reward;
-        }
-
-
-        private void Update()
-        {
-            // Entrenamiento rápido sin depender de "train"
-            if (_qMindTrainerParams != null && Application.isPlaying)
-            {
-                int stepsPerFrame = 100;
-                for (int i = 0; i < stepsPerFrame; i++)
-                {
-                    DoStep(true);
-                }
-            }
-
-            // Guardado manual con tecla S
-            if (Input.GetKeyDown(KeyCode.S))
-            {
-                _qTable.Save();
-                Debug.Log("[Manual Save] Tabla Q guardada al pulsar S.");
-            }
-        }
-
-        private void OnGUI()
-        {
-            GUIStyle guiStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 18,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = Color.black }
-            };
-
-            GUI.Label(new Rect(10, 10, 400, 30), $"Episode: {CurrentEpisode} / Step: {CurrentStep}", guiStyle);
-            GUI.Label(new Rect(10, 40, 400, 30), $"Avg Reward: {ReturnAveraged}", guiStyle);
-            GUI.Label(new Rect(10, 70, 400, 30), $"Total Reward: {Return}", guiStyle);
-            GUI.Label(new Rect(10, 100, 400, 30), $"Epsilon: {Mathf.Round(epsilon * 1000f) / 1000f}", guiStyle);
+            if (newDistance >= oldDistance)
+                return 10f;
+            else
+                return -60f;
         }
     }
 }

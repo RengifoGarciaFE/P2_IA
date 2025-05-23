@@ -1,85 +1,54 @@
 using NavigationDJIA.World;
-using UnityEngine;
 
 namespace GrupoB
 {
     public class State
     {
-        // Información entorno
-        public bool nWall, sWall, eWall, wWall;     // Muros adyacentes
-        public bool enemyNear;                      // ¿Enemigo cerca?
-        public string enemyDirection;               // Dirección cardinal hacia enemigo
-        public string agentZone;                    // Cuadrante del mapa
-        public int freePaths;                       // Caminos abiertos desde la celda actual
-        public bool isEdgeZone;                     // ¿Está cerca del borde?
-        public string idState;                      // Identificador único del estado
-
-        private const float nearThreshold = 3.0f;
+        public int relativeX;  // -1, 0, 1
+        public int relativeY;  // -1, 0, 1
+        public int freePaths;  // 0 a 4
+        public bool isCorner;  // true si está en una esquina del mapa
+        public string idState;
 
         public State(CellInfo agentPos, CellInfo enemyPos, WorldInfo world)
         {
-            // Muros
-            nWall = !world.NextCell(agentPos, world.AllowedMovements.FromIntValue(0)).Walkable;
-            eWall = !world.NextCell(agentPos, world.AllowedMovements.FromIntValue(1)).Walkable;
-            sWall = !world.NextCell(agentPos, world.AllowedMovements.FromIntValue(2)).Walkable;
-            wWall = !world.NextCell(agentPos, world.AllowedMovements.FromIntValue(3)).Walkable;
+            relativeX = GetRelativeDirection(enemyPos.x - agentPos.x);
+            relativeY = GetRelativeDirection(enemyPos.y - agentPos.y);
+            freePaths = CountFreePaths(agentPos, world);
 
-            // Cercanía al enemigo
-            float distance = agentPos.Distance(enemyPos, CellInfo.DistanceType.Manhattan);
-            enemyNear = distance <= nearThreshold;
+            isCorner = IsCorner(agentPos, world);
 
-            // Dirección relativa al enemigo
-            enemyDirection = CalculateEnemyDirection(agentPos, enemyPos);
-
-            // Zona del mapa (cuadrante)
-            agentZone = CalculateMapZone(agentPos, world);
-
-            // Caminos libres
-            freePaths = 0;
-            if (!nWall) freePaths++;
-            if (!sWall) freePaths++;
-            if (!eWall) freePaths++;
-            if (!wWall) freePaths++;
-
-            // ¿Está en una zona de borde?
-            isEdgeZone = agentPos.x == 0 || agentPos.x == world.WorldSize.x - 1 ||
-                         agentPos.y == 0 || agentPos.y == world.WorldSize.y - 1;
-
-            // Codificar el estado
-            idState = GenerateId();
+            idState = $"{relativeX}_{relativeY}_{freePaths}_{(isCorner ? 1 : 0)}";
         }
 
-        private string CalculateEnemyDirection(CellInfo agent, CellInfo enemy)
+        private int GetRelativeDirection(int diff)
         {
-            int dx = enemy.x - agent.x;
-            int dy = enemy.y - agent.y;
-
-            if (dx == 0 && dy > 0) return "N";
-            if (dx == 0 && dy < 0) return "S";
-            if (dx > 0 && dy == 0) return "E";
-            if (dx < 0 && dy == 0) return "W";
-            if (dx > 0 && dy > 0) return "NE";
-            if (dx < 0 && dy > 0) return "NW";
-            if (dx > 0 && dy < 0) return "SE";
-            if (dx < 0 && dy < 0) return "SW";
-            return "SAME";
+            if (diff < 0) return -1;
+            else if (diff > 0) return 1;
+            else return 0;
         }
 
-        private string CalculateMapZone(CellInfo pos, WorldInfo world)
+        private int CountFreePaths(CellInfo pos, WorldInfo world)
         {
-            int midX = world.WorldSize.x / 2;
-            int midY = world.WorldSize.y / 2;
-
-            if (pos.x < midX && pos.y < midY) return "Q1"; // Top-left
-            if (pos.x >= midX && pos.y < midY) return "Q2"; // Top-right
-            if (pos.x < midX && pos.y >= midY) return "Q3"; // Bottom-left
-            return "Q4"; // Bottom-right
+            int count = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                CellInfo next = world.NextCell(pos, world.AllowedMovements.FromIntValue(i));
+                if (next.Walkable)
+                    count++;
+            }
+            return count;
         }
 
-        private string GenerateId()
+        private bool IsCorner(CellInfo pos, WorldInfo world)
         {
-            return $"{(nWall ? 1 : 0)}{(sWall ? 1 : 0)}{(eWall ? 1 : 0)}{(wWall ? 1 : 0)}" +
-                   $"_{(enemyNear ? 1 : 0)}_{enemyDirection}_{agentZone}_{freePaths}_{(isEdgeZone ? 1 : 0)}";
+            int maxX = world.WorldSize.x - 1;
+            int maxY = world.WorldSize.y - 1;
+            return
+                (pos.x == 0 && pos.y == 0) ||
+                (pos.x == 0 && pos.y == maxY) ||
+                (pos.x == maxX && pos.y == 0) ||
+                (pos.x == maxX && pos.y == maxY);
         }
     }
 }
